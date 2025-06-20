@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root:@localhost:3306/blisslearn-db"
+}
+
+model account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              user    @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Account_userId_fkey")
+
+  @@unique([provider, providerAccountId], map: "Account_provider_providerAccountId_key")
+  @@index([userId], map: "Account_userId_fkey")
+}
+
+model session {
+  id           String   @id
+  sessionToken String   @unique(map: "Session_sessionToken_key")
+  userId       String
+  expires      DateTime
+  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Session_userId_fkey")
+
+  @@index([userId], map: "Session_userId_fkey")
+}
+
+model user {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique(map: "User_email_key")
+  emailVerified DateTime?
+  password      String?   @db.Text
+  image         String?
+  account       account[]
+  session       session[]
+  onboarding    onboarding_responses?
+  chatMessages  chat_message[]
+}
+
+model onboarding_responses {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Étape 1: Objectifs d'apprentissage
+  learningObjectives    String   @db.Text // JSON array des objectifs
+  
+  // Étape 2: Domaines d'intérêt
+  domainsOfInterest     String   @db.Text // JSON array des domaines
+  
+  // Étape 3: Niveau de compétence
+  skillLevel            String
+  
+  // Étape 4: Disponibilité horaire
+  weeklyHours           Int
+  
+  // Étape 5: Plateformes préférées
+  preferredPlatforms    String   @db.Text // JSON array des plateformes
+  
+  // Étape 6: Préférences de cours
+  courseFormat          String   @db.Text // JSON array des formats
+  courseDuration        String
+  courseLanguage        String
+  
+  // Étape 7: Récapitulatif et finalisation
+  isCompleted           Boolean  @default(false)
+  completedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model verificationtoken {
+  identifier String
+  token      String   @unique(map: "VerificationToken_token_key")
+  expires    DateTime
+
+  @@unique([identifier, token], map: "VerificationToken_identifier_token_key")
+}
+
+model chat_message {
+  id        String   @id @default(cuid())
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // "user" ou "assistant"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model course {
+  id              Int      @id @default(autoincrement())
+  course_id       String?  // identifiant d'origine (peut être string ou int dans le CSV)
+  title           String?
+  platform        String?
+  provider        String?
+  description     String?  @db.Text
+  skills          String?  @db.Text // JSON ou liste de skills
+  level           String?
+  duration        String?
+  rating          Float?
+  price           String?
+  language        String?
+  format          String?
+  start_date      DateTime?
+  url             String?
+  certificate_type String?
+  extra           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([platform, provider])
+}

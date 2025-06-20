@@ -1,0 +1,47 @@
+{
+  "name": "BlissLearn - Plateforme d'Apprentissage Intelligente",
+  "short_name": "BlissLearn",
+  "description": "Plateforme d'apprentissage intelligente avec IA pour des cours personnalisés",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "fr",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Cours",
+      "short_name": "Cours",
+      "description": "Accéder à vos cours",
+      "url": "/courses",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "Profil",
+      "short_name": "Profil",
+      "description": "Gérer votre profil",
+      "url": "/profile",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
+    }
+  ]
+} 
