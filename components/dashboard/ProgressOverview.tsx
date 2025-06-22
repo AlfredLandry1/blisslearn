@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,97 +12,68 @@ import {
   Play,
   CheckCircle,
 } from "lucide-react";
-
-interface Course {
-  id: string;
-  title: string;
-  progress: number;
-  totalLessons: number;
-  completedLessons: number;
-  category: string;
-  estimatedTime: string;
-}
-
-const mockCourses: Course[] = [
-  {
-    id: "1",
-    title: "Introduction à React",
-    progress: 75,
-    totalLessons: 12,
-    completedLessons: 9,
-    category: "Développement Web",
-    estimatedTime: "2h 30min restantes",
-  },
-  {
-    id: "2",
-    title: "TypeScript Avancé",
-    progress: 45,
-    totalLessons: 8,
-    completedLessons: 4,
-    category: "Développement Web",
-    estimatedTime: "4h 15min restantes",
-  },
-  {
-    id: "3",
-    title: "Next.js 14",
-    progress: 20,
-    totalLessons: 15,
-    completedLessons: 3,
-    category: "Framework",
-    estimatedTime: "8h restantes",
-  },
-];
+import { useCourseStore } from "@/stores/courseStore";
+import { DashboardCard } from "./DashboardCard";
+import Link from "next/link";
 
 export function ProgressOverview() {
-  const totalProgress =
-    mockCourses.reduce((acc, course) => acc + course.progress, 0) /
-    mockCourses.length;
-  const totalCourses = mockCourses.length;
-  const completedCourses = mockCourses.filter(
-    (course) => course.progress === 100
-  ).length;
+  const { globalStats, courses } = useCourseStore();
+
+  const totalProgress = globalStats?.globalProgress || 0;
+  const totalCourses = globalStats?.totalCourses || 0;
+  const completedCourses = globalStats?.completedCourses || 0;
+  const inProgressCourses = globalStats?.inProgressCourses || 0;
 
   return (
-    <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/80 border
-     border-gray-700 rounded-xl shadow-lg hover:shadow-2xl hover:scale-[1.02] 
-     transition-all duration-300 backdrop-blur-md ring-1 ring-blue-500/10 relative overflow-hidden group">
-      {/* Glow effect */}
-      <div className="absolute -inset-2 bg-blue-500/10 blur-2xl opacity-0 group-hover:opacity-60
-       transition-opacity duration-300 pointer-events-none" />
-      <CardHeader className="pb-2">
-        <CardTitle className="text-white text-lg font-bold truncate">
-          Mon parcours
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 md:items-center-safe">
-          <div className="flex-1">
-            <div className="text-4xl font-bold text-blue-400 mb-1 truncate">
-              75%
-            </div>
-            <div className="text-gray-400 text-sm truncate">
-              Progression globale
-            </div>
+    <DashboardCard title="Mon parcours">
+      <div className="flex flex-col sm:flex-row gap-4 md:items-center">
+        <div className="flex-1">
+          <div className="text-6xl font-bold text-blue-400 mb-1 truncate">
+            {totalProgress}%
           </div>
-          <Progress value={75} className="w-full sm:w-48 h-2 bg-gray-700" />
+          <div className="text-gray-400 text-sm truncate">
+            Progression globale
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+      </div>
+      <Progress value={totalProgress} className="w-full h-2 bg-gray-700" />
+      
+      {/* Statistiques rapides */}
+      <div className="grid grid-cols-3 gap-4 text-left">
+        <div>
+          <div className="text-2xl font-bold text-white">{totalCourses}</div>
+          <div className="text-xs text-gray-400">Total</div>
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-blue-400">{inProgressCourses}</div>
+          <div className="text-xs text-gray-400">En cours</div>
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-green-400">{completedCourses}</div>
+          <div className="text-xs text-gray-400">Terminés</div>
+        </div>
+      </div>
+      
+      <div className="flex flex-wrap gap-2">
+        <Link href="/dashboard/my-courses">
           <Button
             variant="outline"
             className="border-gray-600 text-gray-300 hover:bg-gray-800/50 truncate"
           >
             <TrendingUp className="w-4 h-4 mr-2" />
-            Voir les statistiques
+            Mes cours
           </Button>
+        </Link>
+        <Link href="/dashboard/certifications">
           <Button
             variant="outline"
             className="border-gray-600 text-gray-300 hover:bg-gray-800/50 truncate"
           >
-            <CheckCircle className="w-4 h-4 mr-2" />
+            <Trophy className="w-4 h-4 mr-2" />
             Certifications
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </Link>
+      </div>
+    </DashboardCard>
   );
 }

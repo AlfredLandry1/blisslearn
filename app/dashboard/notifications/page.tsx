@@ -4,6 +4,8 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Bell, 
   CheckCircle, 
@@ -11,79 +13,16 @@ import {
   Info,
   Clock,
   Trash2,
-  Settings
+  Settings,
+  Search,
+  Filter,
+  X
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { NotificationCard } from "@/components/dashboard/NotificationCard";
 import { NotificationDetailModal } from "@/components/dashboard/NotificationDetailModal";
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: "success" | "warning" | "info" | "error";
-  timestamp: string;
-  isRead: boolean;
-  action?: string;
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "Certification obtenue !",
-    message: "Félicitations ! Vous avez obtenu la certification TypeScript avec un score de 92%.",
-    type: "success",
-    timestamp: "Il y a 2 heures",
-    isRead: false,
-    action: "Voir le certificat"
-  },
-  {
-    id: "2",
-    title: "Webinar à venir",
-    message: "Rappel : Webinar React Hooks demain à 14h00. N'oubliez pas de vous connecter !",
-    type: "info",
-    timestamp: "Il y a 4 heures",
-    isRead: false,
-    action: "Rejoindre"
-  },
-  {
-    id: "3",
-    title: "Deadline approche",
-    message: "Votre projet final doit être soumis dans 3 jours. Assurez-vous de le finaliser à temps.",
-    type: "warning",
-    timestamp: "Il y a 1 jour",
-    isRead: true,
-    action: "Voir le projet"
-  },
-  {
-    id: "4",
-    title: "Nouveau cours disponible",
-    message: "Le cours 'Node.js et Express' est maintenant disponible. Commencez votre apprentissage !",
-    type: "info",
-    timestamp: "Il y a 2 jours",
-    isRead: true,
-    action: "Commencer"
-  },
-  {
-    id: "5",
-    title: "Problème de connexion",
-    message: "Nous avons détecté un problème avec votre connexion. Veuillez vérifier vos paramètres.",
-    type: "error",
-    timestamp: "Il y a 3 jours",
-    isRead: true,
-    action: "Résoudre"
-  },
-  {
-    id: "6",
-    title: "Objectif atteint",
-    message: "Vous avez atteint votre objectif mensuel de 50h d'apprentissage ! Continuez comme ça !",
-    type: "success",
-    timestamp: "Il y a 4 jours",
-    isRead: true
-  }
-];
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
@@ -115,8 +54,6 @@ const getNotificationColor = (type: string) => {
   }
 };
 
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
-
 function formatDate(dateStr?: string) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
@@ -125,9 +62,6 @@ function formatDate(dateStr?: string) {
 
 export default function NotificationsPage() {
   const notifications = useUIStore((s) => s.notifications);
-  const unread = notifications.filter((n: any) => !n.read);
-  const read = notifications.filter((n: any) => n.read);
-  const unreadCount = unread.length;
   const markAsRead = useUIStore((s) => s.markAsRead);
   const markAllAsRead = useUIStore((s) => s.markAllAsRead);
   const removeNotificationById = useUIStore((s) => s.removeNotificationById);
@@ -136,11 +70,59 @@ export default function NotificationsPage() {
   const currentPage = useUIStore((s) => s.currentPage);
   const setCurrentPage = useUIStore((s) => s.setCurrentPage);
   const pageSize = useUIStore((s) => s.pageSize);
-  const addNotification = useUIStore((s) => s.addNotification);
+
+  // États des filtres
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filtrage des notifications
+  const filteredNotifications = useMemo(() => {
+    let filtered = notifications;
+
+    // Filtre par recherche textuelle
+    if (searchTerm) {
+      filtered = filtered.filter((notification: any) =>
+        notification.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        notification.message?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtre par type
+    if (typeFilter !== "all") {
+      filtered = filtered.filter((notification: any) => notification.type === typeFilter);
+    }
+
+    // Filtre par statut de lecture
+    if (statusFilter === "unread") {
+      filtered = filtered.filter((notification: any) => !notification.read);
+    } else if (statusFilter === "read") {
+      filtered = filtered.filter((notification: any) => notification.read);
+    }
+
+    return filtered;
+  }, [notifications, searchTerm, typeFilter, statusFilter]);
+
+  // Séparation des notifications filtrées
+  const unread = filteredNotifications.filter((n: any) => !n.read);
+  const read = filteredNotifications.filter((n: any) => n.read);
+  const unreadCount = unread.length;
 
   // Pagination
   const paginated = (arr: any[]) => arr.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const totalPages = Math.ceil(notifications.length / pageSize);
+  const totalPages = Math.ceil(filteredNotifications.length / pageSize);
+
+  // Réinitialiser les filtres
+  const clearFilters = () => {
+    setSearchTerm("");
+    setTypeFilter("all");
+    setStatusFilter("all");
+    setCurrentPage(1);
+  };
+
+  // Vérifier s'il y a des filtres actifs
+  const hasActiveFilters = searchTerm || typeFilter !== "all" || statusFilter !== "all";
 
   return (
     <DashboardLayout>
@@ -168,93 +150,188 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* Actions rapides */}
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="border-gray-600 text-gray-300">
-            Marquer tout comme lu
-          </Button>
-          <Button variant="outline" className="border-gray-600 text-gray-300">
-            Supprimer tout
-          </Button>
-          <Button variant="outline" className="border-gray-600 text-gray-300">
-            Filtrer par type
-          </Button>
-        </div>
-
-        {/* Bouton tout marquer comme lu */}
-        <div className="flex justify-end mb-4">
-          <Button variant="outline" size="sm" onClick={markAllAsRead} disabled={unread.length === 0}>
-            Tout marquer comme lu
-          </Button>
-        </div>
-
-        {/* Bouton de test pour ajouter 4 notifications */}
-        <div className="flex justify-end mb-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              addNotification({ id: genId(), type: "success", message: "Succès !", title: "Succès" });
-              addNotification({ id: genId(), type: "error", message: "Erreur détectée.", title: "Erreur" });
-              addNotification({ id: genId(), type: "info", message: "Information importante.", title: "Info" });
-              addNotification({ id: genId(), type: "warning", message: "Attention requise.", title: "Avertissement" });
-            }}
-          >
-            Créer 4 notifications de test
-          </Button>
-        </div>
-
-        {/* Liste des notifications non lues */}
-        <h2 className="text-lg font-semibold text-white mb-2 mt-8 flex items-center gap-2">
-          Non lues
-          {unreadCount > 0 && (
-            <span className="inline-flex items-center justify-center bg-blue-500 text-white text-xs font-bold rounded-full px-2 py-0.5 ml-2">
-              {unreadCount}
-            </span>
-          )}
-        </h2>
-        {paginated(unread).length === 0 ? (
-          <div className="p-4 text-gray-400">Aucune notification non lue.</div>
-        ) : (
-          <div className="divide-y divide-gray-800 rounded-lg overflow-hidden bg-gray-900/60 border border-gray-800">
-            {paginated(unread).map((notification: any) => (
-              <NotificationCard
-                key={notification.id}
-                notification={notification}
-                onMarkAsRead={markAsRead}
-                onDetail={(id) => { setSelectedNotificationId(id); openModal('notificationDetailModal'); }}
-                onDelete={removeNotificationById}
-                getNotificationIcon={getNotificationIcon}
-                getNotificationColor={getNotificationColor}
-              />
-            ))}
+        {/* Barre de recherche et filtres */}
+        <div className="space-y-4">
+          {/* Barre de recherche */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Rechercher dans les notifications..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-gray-900/60 border-gray-700 text-white placeholder-gray-400"
+            />
+            {searchTerm && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 text-gray-400 hover:text-white"
+                            >
+                <X className="w-3 h-3" />
+                            </Button>
+            )}
           </div>
-        )}
-
-        {/* Liste des notifications lues */}
-        <h2 className="text-lg font-semibold text-white mb-2 mt-8 flex items-center gap-2">
-          Lues
-          {read.length > 0 && (
-            <span className="inline-flex items-center justify-center bg-gray-700 text-gray-200 text-xs font-bold rounded-full px-2 py-0.5 ml-2">
-              {read.length}
-            </span>
-          )}
-        </h2>
-        {paginated(read).length === 0 ? (
-          <div className="p-4 text-gray-400">Aucune notification lue.</div>
-        ) : (
-          <div className="divide-y divide-gray-800 rounded-lg overflow-hidden bg-gray-900/40 border border-gray-800">
-            {paginated(read).map((notification: any) => (
-              <NotificationCard
-                key={notification.id}
-                notification={notification}
-                onDetail={(id) => { setSelectedNotificationId(id); openModal('notificationDetailModal'); }}
-                onDelete={removeNotificationById}
-                getNotificationIcon={getNotificationIcon}
-                getNotificationColor={getNotificationColor}
-              />
-            ))}
+                            
+          {/* Boutons de filtres */}
+          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <Button 
+                variant={showFilters ? "secondary" : "outline"}
+                                  size="sm" 
+                onClick={() => setShowFilters(!showFilters)}
+                className="border-gray-600 text-gray-300"
+                                >
+                <Filter className="w-4 h-4 mr-2" />
+                Filtres
+                                </Button>
+              {hasActiveFilters && (
+                              <Button 
+                  variant="outline"
+                                size="sm" 
+                  onClick={clearFilters}
+                  className="border-red-600 text-red-400 hover:bg-red-600/10"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Effacer les filtres
+                </Button>
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={markAllAsRead} disabled={unread.length === 0}>
+              Tout marquer comme lu
+                              </Button>
           </div>
+
+          {/* Panneau de filtres */}
+          {showFilters && (
+            <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Filtre par type */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-300">Type de notification</label>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                      <SelectValue placeholder="Tous les types" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-600">
+                      <SelectItem value="all">Tous les types</SelectItem>
+                      <SelectItem value="success">Succès</SelectItem>
+                      <SelectItem value="warning">Avertissement</SelectItem>
+                      <SelectItem value="error">Erreur</SelectItem>
+                      <SelectItem value="info">Information</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtre par statut */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-300">Statut</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                      <SelectValue placeholder="Tous les statuts" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-600">
+                      <SelectItem value="all">Tous les statuts</SelectItem>
+                      <SelectItem value="unread">Non lues</SelectItem>
+                      <SelectItem value="read">Lues</SelectItem>
+                    </SelectContent>
+                  </Select>
+                            </div>
+                          </div>
+
+              {/* Statistiques des filtres */}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-700">
+                <span className="text-sm text-gray-400">
+                  {filteredNotifications.length} notification{filteredNotifications.length !== 1 ? 's' : ''} trouvée{filteredNotifications.length !== 1 ? 's' : ''}
+                  {hasActiveFilters && ` sur ${notifications.length} total`}
+                </span>
+                <div className="flex items-center space-x-2">
+                  {typeFilter !== "all" && (
+                    <Badge variant="outline" className="border-blue-600 text-blue-400">
+                      Type: {typeFilter}
+                    </Badge>
+                  )}
+                  {statusFilter !== "all" && (
+                    <Badge variant="outline" className="border-green-600 text-green-400">
+                      Statut: {statusFilter === "unread" ? "Non lues" : "Lues"}
+                    </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+          )}
+        </div>
+
+        {/* Résultats filtrés */}
+        {filteredNotifications.length === 0 ? (
+          <div className="text-center py-12">
+            <Bell className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-300 mb-2">
+              {hasActiveFilters ? "Aucune notification trouvée" : "Aucune notification"}
+            </h3>
+            <p className="text-gray-500 mb-4">
+              {hasActiveFilters 
+                ? "Essayez de modifier vos critères de recherche ou de réinitialiser les filtres."
+                : "Vous n'avez pas encore de notifications."
+              }
+            </p>
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={clearFilters}>
+                Effacer les filtres
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Liste des notifications non lues */}
+            {unread.length > 0 && (
+              <>
+                <h2 className="text-lg font-semibold text-white mb-2 mt-8 flex items-center gap-2">
+                  Non lues
+                  <span className="inline-flex items-center justify-center bg-blue-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                    {unread.length}
+                  </span>
+                </h2>
+                <div className="divide-y divide-gray-800 rounded-lg overflow-hidden bg-gray-900/60 border border-gray-800">
+                  {paginated(unread).map((notification: any) => (
+                    <NotificationCard
+                      key={notification.id}
+                      notification={notification}
+                      onMarkAsRead={markAsRead}
+                      onDetail={(id) => { setSelectedNotificationId(id); openModal('notificationDetailModal'); }}
+                      onDelete={removeNotificationById}
+                      getNotificationIcon={getNotificationIcon}
+                      getNotificationColor={getNotificationColor}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Liste des notifications lues */}
+            {read.length > 0 && (
+              <>
+                <h2 className="text-lg font-semibold text-white mb-2 mt-8 flex items-center gap-2">
+                  Lues
+                  <span className="inline-flex items-center justify-center bg-gray-700 text-gray-200 text-xs font-bold rounded-full px-2 py-0.5">
+                    {read.length}
+                  </span>
+                </h2>
+                <div className="divide-y divide-gray-800 rounded-lg overflow-hidden bg-gray-900/40 border border-gray-800">
+                  {paginated(read).map((notification: any) => (
+                    <NotificationCard
+                      key={notification.id}
+                      notification={notification}
+                      onDetail={(id) => { setSelectedNotificationId(id); openModal('notificationDetailModal'); }}
+                      onDelete={removeNotificationById}
+                      getNotificationIcon={getNotificationIcon}
+                      getNotificationColor={getNotificationColor}
+                    />
+                  ))}
+            </div>
+              </>
+            )}
+          </>
         )}
 
         {/* Modale de détail notification */}
@@ -279,7 +356,7 @@ export default function NotificationsPage() {
                 className="px-3"
               >
                 {i + 1}
-              </Button>
+          </Button>
             ))}
           </div>
         )}

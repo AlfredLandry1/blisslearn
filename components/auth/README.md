@@ -29,7 +29,7 @@ Layout réutilisable avec :
 Formulaire de connexion avec :
 - Champs email et mot de passe
 - Bouton de visibilité du mot de passe
-- Connexion sociale (GitHub, Google)
+- Connexion sociale (Google)
 - Lien vers mot de passe oublié
 - Lien vers inscription
 - Animations et transitions fluides
@@ -39,7 +39,7 @@ Formulaire d'inscription avec :
 - Champs prénom, nom, email, mot de passe
 - Validation en temps réel du mot de passe
 - Indicateurs de force du mot de passe
-- Connexion sociale (GitHub, Google)
+- Connexion sociale (Google)
 - Conditions d'utilisation
 - Lien vers connexion
 

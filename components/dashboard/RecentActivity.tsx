@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { Separator } from "../ui/separator";
+import { DashboardCard } from "./DashboardCard";
 
 interface Activity {
   id: string;
@@ -75,37 +75,28 @@ const mockActivities: Activity[] = [
 
 export function RecentActivity() {
   return (
-    <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/80 border border-gray-700 rounded-xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 backdrop-blur-md ring-1 ring-blue-500/10 relative overflow-hidden group">
-      {/* Glow effect */}
-      <div className="absolute -inset-2 bg-blue-500/10 blur-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-300 pointer-events-none" />
-      <CardHeader className="pb-2">
-        <CardTitle className="text-white text-lg font-bold truncate">
-          Activité récente
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {mockActivities.length === 0 && (
-          <div className="text-gray-400 text-sm">Aucune activité récente.</div>
-        )}
-        {mockActivities.map((activity, i) => (
-          <div
-            key={i}
-            className="flex flex-col sm:flex-row md:items-center-safe gap-3"
-          >
-            <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs px-2 py-1 mb-1 sm:mb-0">
-              {activity.timestamp}
-            </Badge>
-            <div className="flex-1 min-w-0">
-              <div className="text-white font-medium truncate">
-                {activity.title}
-              </div>
-              <div className="text-gray-400 text-xs truncate">
-                {activity.description}
-              </div>
+    <DashboardCard title="Activité récente">
+      {mockActivities.length === 0 && (
+        <div className="text-gray-400 text-sm">Aucune activité récente.</div>
+      )}
+      {mockActivities.map((activity, i) => (
+        <div
+          key={i}
+          className="flex flex-col sm:flex-row md:items-center gap-3"
+        >
+          <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs px-2 py-1 mb-1 sm:mb-0">
+            {activity.timestamp}
+          </Badge>
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-medium truncate">
+              {activity.title}
+            </div>
+            <div className="text-gray-400 text-xs truncate">
+              {activity.description}
             </div>
           </div>
-        ))}
-      </CardContent>
-    </Card>
+        </div>
+      ))}
+    </DashboardCard>
   );
 }

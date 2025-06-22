@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-
-import React, { useState }, { useState } from "react";
 import { Field, ErrorMessage } from "formik";
 import { Label } from "./label";
 import { Button } from "../button";
@@ -43,7 +41,10 @@ export function FormikFieldWithIcon({
   return (
     <div className={cn("space-y-2", className)}>
       {label && (
-        <Label htmlFor={name} className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label
+          htmlFor={name}
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </Label>
@@ -75,7 +76,11 @@ export function FormikFieldWithIcon({
             size="sm"
             className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
             onClick={togglePassword}
-            aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            aria-label={
+              showPassword
+                ? "Masquer le mot de passe"
+                : "Afficher le mot de passe"
+            }
           >
             {showPassword ? (
               <EyeOff className="w-4 h-4" aria-hidden="true" />

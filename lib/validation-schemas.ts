@@ -46,6 +46,61 @@ export const forgotPasswordSchema = Yup.object().shape({
     .required("L'adresse email est requise")
 });
 
+// Schéma de validation pour la réinitialisation de mot de passe
+export const resetPasswordSchema = Yup.object().shape({
+  password: Yup.string()
+    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+    .matches(/[a-z]/, "Le mot de passe doit contenir au moins une lettre minuscule")
+    .matches(/[A-Z]/, "Le mot de passe doit contenir au moins une lettre majuscule")
+    .matches(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre")
+    .required("Le mot de passe est requis"),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password')], "Les mots de passe doivent être identiques")
+    .required("La confirmation du mot de passe est requise"),
+});
+
+// Schéma de validation pour la configuration de mot de passe (Google users)
+export const setPasswordSchema = Yup.object().shape({
+  password: Yup.string()
+    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+    .matches(/[a-z]/, "Le mot de passe doit contenir au moins une lettre minuscule")
+    .matches(/[A-Z]/, "Le mot de passe doit contenir au moins une lettre majuscule")
+    .matches(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre")
+    .required("Le mot de passe est requis"),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password')], "Les mots de passe doivent être identiques")
+    .required("La confirmation du mot de passe est requise"),
+});
+
+// Schéma de validation pour les paliers de progression
+export const milestoneValidationSchema = Yup.object().shape({
+  learningSummary: Yup.string()
+    .min(50, "Le résumé doit contenir au moins 50 caractères")
+    .max(1000, "Le résumé ne peut pas dépasser 1000 caractères")
+    .required("Le résumé est requis"),
+  keyConcepts: Yup.array()
+    .of(Yup.string().min(3, "Chaque concept doit contenir au moins 3 caractères"))
+    .min(1, "Ajoutez au moins 1 concept clé")
+    .max(10, "Maximum 10 concepts clés")
+    .required("Les concepts clés sont requis"),
+  challenges: Yup.string()
+    .min(20, "Décrivez vos difficultés en au moins 20 caractères")
+    .max(500, "Maximum 500 caractères")
+    .required("Les difficultés sont requises"),
+  nextSteps: Yup.string()
+    .min(20, "Décrivez vos prochaines étapes en au moins 20 caractères")
+    .max(500, "Maximum 500 caractères")
+    .required("Les prochaines étapes sont requises"),
+  timeSpentAtMilestone: Yup.number()
+    .min(1, "Le temps passé doit être supérieur à 0")
+    .required("Le temps passé est requis"),
+  positionAtMilestone: Yup.string()
+    .min(3, "La position doit contenir au moins 3 caractères")
+    .required("La position est requise"),
+  notesAtMilestone: Yup.string()
+    .max(1000, "Maximum 1000 caractères")
+});
+
 // Types TypeScript pour les formulaires
 export interface LoginFormValues {
   email: string;
@@ -66,6 +121,26 @@ export interface ForgotPasswordFormValues {
   email: string;
 }
 
+export interface ResetPasswordFormValues {
+  password: string;
+  confirmPassword: string;
+}
+
+export interface SetPasswordFormValues {
+  password: string;
+  confirmPassword: string;
+}
+
+export interface MilestoneValidationFormValues {
+  learningSummary: string;
+  keyConcepts: string[];
+  challenges: string;
+  nextSteps: string;
+  timeSpentAtMilestone: number;
+  positionAtMilestone: string;
+  notesAtMilestone: string;
+}
+
 // Valeurs initiales pour les formulaires
 export const initialLoginValues: LoginFormValues = {
   email: "",
@@ -79,9 +154,29 @@ export const initialRegisterValues: RegisterFormValues = {
   email: "",
   password: "",
   confirmPassword: "",
-  acceptTerms: true
+  acceptTerms: false
 };
 
 export const initialForgotPasswordValues: ForgotPasswordFormValues = {
   email: ""
+};
+
+export const initialResetPasswordValues: ResetPasswordFormValues = {
+  password: "",
+  confirmPassword: ""
+};
+
+export const initialSetPasswordValues: SetPasswordFormValues = {
+  password: "",
+  confirmPassword: ""
+};
+
+export const initialMilestoneValidationValues: MilestoneValidationFormValues = {
+  learningSummary: "",
+  keyConcepts: [],
+  challenges: "",
+  nextSteps: "",
+  timeSpentAtMilestone: 0,
+  positionAtMilestone: "",
+  notesAtMilestone: ""
 }; 

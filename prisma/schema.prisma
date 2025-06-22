@@ -43,10 +43,13 @@ model user {
   emailVerified DateTime?
   password      String?   @db.Text
   image         String?
+  provider      String?   // "google", "credentials", etc.
   account       account[]
   session       session[]
   onboarding    onboarding_responses?
   chatMessages  chat_message[]
+  userCourseProgress user_course_progress[]
+  passwordResetTokens passwordResetToken[]
 }
 
 model onboarding_responses {
@@ -91,6 +94,20 @@ model verificationtoken {
   @@unique([identifier, token], map: "VerificationToken_identifier_token_key")
 }
 
+// Token de réinitialisation de mot de passe
+model passwordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
 model chat_message {
   id        String   @id @default(cuid())
   userId    String
@@ -120,6 +137,133 @@ model course {
   extra           String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
+  userCourseProgress user_course_progress[]
+  learningPathCourses learning_path_course[]
   @@index([platform, provider])
+}
+
+model user_course_progress {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    Int
+  status      String   // "not_started", "in_progress", "completed", "paused", "abandoned"
+  startedAt   DateTime?
+  completedAt DateTime?
+  favorite    Boolean  @default(false)
+  notes       String?  @db.Text
+  
+  // Nouveaux champs pour le suivi de progression
+  progressPercentage Decimal? @db.Decimal(5,2) // 0.00 à 100.00
+  timeSpent          Int?     // Temps passé en minutes
+  lastActivityAt     DateTime? // Dernière activité sur le cours
+  currentPosition    String?  // Position actuelle (ex: "Chapitre 3, Leçon 2")
+  bookmarks          String?  @db.Text // JSON des signets/positions sauvegardées
+  rating             Int?     // Note donnée par l'utilisateur (1-5)
+  review             String?  @db.Text // Avis/commentaire de l'utilisateur
+  difficulty         String?  // "easy", "medium", "hard" - évaluation utilisateur
+  completionDate     DateTime? // Date de fin réelle
+  
+  updatedAt   DateTime @updatedAt
+
+  user   user   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  // Relations vers les paliers et rapports
+  milestones milestone[]
+  reports    course_report[]
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@index([lastActivityAt])
+}
+
+// Nouveau modèle pour les paliers de progression
+model milestone {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    Int
+  progressId  String
+  
+  // Informations du palier
+  percentage  Int      // 25, 50, 75, 100
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  
+  // Données de progression au moment du palier
+  timeSpentAtMilestone Int?     // Temps passé en minutes à ce palier
+  positionAtMilestone  String?  // Position actuelle à ce palier
+  notesAtMilestone     String?  @db.Text // Notes spécifiques à ce palier
+  
+  // Informations d'apprentissage fournies par l'utilisateur
+  learningSummary      String?  @db.Text // Résumé de ce qui a été appris
+  keyConcepts          String?  @db.Text // Concepts clés maîtrisés (JSON)
+  challenges           String?  @db.Text // Difficultés rencontrées
+  nextSteps            String?  @db.Text // Prochaines étapes prévues
+  
+  // Validation et métadonnées
+  validatedAt          DateTime?
+  lastUpdatedAt        DateTime? // Dernière mise à jour automatique des données
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user_course_progress user_course_progress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId, percentage])
+  @@index([userId, courseId])
+  @@index([progressId])
+}
+
+// Nouveau modèle pour les rapports IA générés
+model course_report {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    Int
+  progressId  String
+  
+  // Informations du rapport
+  title       String   // Titre du rapport
+  type        String   // "milestone_summary", "course_completion", "learning_review"
+  milestonePercentage Int? // Pourcentage du palier associé (si applicable)
+  
+  // Contenu généré par l'IA
+  summary     String   @db.Text // Résumé généré
+  keyPoints   String   @db.Text // Points clés (JSON)
+  recommendations String? @db.Text // Recommandations pour la suite
+  insights    String?  @db.Text // Insights et observations
+  
+  // Métadonnées
+  generatedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user_course_progress user_course_progress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+
+  @@index([userId, courseId])
+  @@index([progressId])
+  @@index([type])
+}
+
+// Parcours d'apprentissage structurés (fonctionnalité future)
+// Permet de créer des séquences de cours organisées logiquement
+model learning_path {
+  id          String   @id @default(cuid())
+  title       String   // Titre du parcours (ex: "Développement Web Frontend")
+  description String?  // Description détaillée du parcours
+  createdBy   String?  // ID de l'utilisateur qui a créé le parcours
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  courses     learning_path_course[] // Relation vers les cours du parcours
+}
+
+// Table de liaison entre parcours et cours
+// Permet d'associer plusieurs cours à un parcours avec un ordre spécifique
+model learning_path_course {
+  id             String   @id @default(cuid())
+  learningPathId String   // Référence vers le parcours
+  courseId       Int      // Référence vers le cours
+
+  learning_path learning_path @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+  course        course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
 }

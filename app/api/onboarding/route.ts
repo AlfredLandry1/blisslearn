@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/route";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { safeJsonParseArray } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -90,11 +92,11 @@ export async function GET(request: NextRequest) {
     // Parser les données JSON stockées
     const parsedOnboarding = {
       ...onboardingData,
-      learningObjectives: JSON.parse(onboardingData.learningObjectives),
-      domainsOfInterest: JSON.parse(onboardingData.domainsOfInterest),
-      preferredPlatforms: JSON.parse(onboardingData.preferredPlatforms),
+      learningObjectives: safeJsonParseArray(onboardingData.learningObjectives),
+      domainsOfInterest: safeJsonParseArray(onboardingData.domainsOfInterest),
+      preferredPlatforms: safeJsonParseArray(onboardingData.preferredPlatforms),
       coursePreferences: {
-        format: JSON.parse(onboardingData.courseFormat),
+        format: safeJsonParseArray(onboardingData.courseFormat),
         duration: onboardingData.courseDuration,
         language: onboardingData.courseLanguage,
       },

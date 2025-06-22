@@ -43,7 +43,7 @@ export const Footer = React.memo(function Footer() {
               </li>
               <li>
                 <a
-                  href="/courses"
+                  href="/dashboard/my-courses"
                   className="flex items-center gap-2 hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 group"
                   aria-label="Voir tous les cours"
                 >

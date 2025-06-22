@@ -1,6 +1,7 @@
 export { DashboardLayout } from "./DashboardLayout";
 export { DashboardSidebar } from "./DashboardSidebar";
 export { DashboardBreadcrumb } from "./DashboardBreadcrumb";
+export { DashboardCard } from "./DashboardCard";
 export { UserInfoCard } from "./UserInfoCard";
 export { ProgressOverview } from "./ProgressOverview";
 export { RecentActivity } from "./RecentActivity";

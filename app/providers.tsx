@@ -2,9 +2,12 @@
 
 import { ThemeProvider } from "next-themes";
 import { SessionProvider } from "next-auth/react";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { ConfirmationProvider } from "@/components/ui/confirmation-dialog";
 import { useEffect, useRef } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { useUserStore } from "@/stores/userStore";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 function NotificationsListener() {
@@ -39,22 +42,34 @@ function NotificationsListener() {
   return null;
 }
 
+function AuthSyncListener() {
+  const { data: session, status } = useSession();
+  const { setSession, setLoading } = useUserStore();
+
+  useEffect(() => {
+    // Synchroniser la session avec le store utilisateur
+    setSession(session);
+    setLoading(status === 'loading');
+  }, [session, status, setSession, setLoading]);
+
+  return null;
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider
-      refetchInterval={5 * 60} // Refetch session every 5 minutes
-      refetchOnWindowFocus={true}
-      refetchWhenOffline={false}
-    >
+    <SessionProvider>
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
         enableSystem
         disableTransitionOnChange
       >
-        {children}
-        <NotificationsListener />
-        <Toaster />
+        <ConfirmationProvider>
+          <AuthSyncListener />
+          {children}
+          <NotificationsListener />
+          <Toaster />
+        </ConfirmationProvider>
       </ThemeProvider>
     </SessionProvider>
   );

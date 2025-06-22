@@ -57,7 +57,7 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
       className="space-y-6"
     >
       <div className="text-center mb-6">
-        <Settings className="w-12 h-12 text-teal-400 mx-auto mb-4" / aria-hidden="true">
+        <Settings className="w-12 h-12 text-teal-400 mx-auto mb-4" aria-hidden="true" />
         <h2 className="text-xl font-semibold text-white mb-2">
           Quelles sont vos préférences de cours ?
         </h2>
@@ -180,18 +180,18 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
           onClick={onPrev}
           variant="outline"
           className="border-gray-600 text-gray-300 hover:bg-gray-800/50 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-         aria-label="Action">
-          <ArrowLeft className="w-4 h-4 mr-2" / aria-hidden="true">
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
           Précédent
         </Button>
         
         <Button
           onClick={onNext}
-          disabled={!isStepValid || isLoading}
+          disabled={!isStepValid}
           className="bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-         aria-label="Action">
+        >
           Suivant
-          <ArrowRight className="w-4 h-4 ml-2" / aria-hidden="true">
+          <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
         </Button>
       </div>
     </motion.div>

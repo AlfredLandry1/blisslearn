@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import * as loader from "@/components/loading";
 import { OnboardingGuard } from "@/components/auth/OnboardingGuard";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -11,11 +12,21 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { QuickStats } from "@/components/dashboard/QuickStats";
 import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { SpaceBackground } from "@/components/ui/SpaceBackground";
+import { useUserStore } from "@/stores/userStore";
+import { useCourseStore } from "@/stores/courseStore";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const firstName = session?.user?.name?.split(" ")[0] || "";
+  const { refreshCourses } = useCourseStore();
+
+  // Charger les données des cours au montage du composant
+  useEffect(() => {
+    if (status === "authenticated") {
+      refreshCourses();
+    }
+  }, [status, refreshCourses]);
 
   if (status === "loading") {
     return <loader.PageSpinner />;
@@ -57,5 +68,51 @@ export default function DashboardPage() {
         </div>
       </DashboardLayout>
     </OnboardingGuard>
+  );
+}
+
+// Composant de debug temporaire
+function UserStoreDebug() {
+  const { 
+    session, 
+    user, 
+    isAuthenticated, 
+    isLoading, 
+    getOnboardingStatus,
+    getUserName,
+    getUserEmail
+  } = useUserStore();
+
+  return (
+    <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4 mb-4">
+      <h3 className="text-white text-sm font-bold mb-2">Debug - Store Utilisateur</h3>
+      <div className="space-y-1 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Authentifié:</span>
+          <span className={isAuthenticated ? "text-green-400" : "text-red-400"}>
+            {isAuthenticated ? "Oui" : "Non"}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Chargement:</span>
+          <span className={isLoading ? "text-yellow-400" : "text-green-400"}>
+            {isLoading ? "En cours" : "Terminé"}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Onboarding:</span>
+          <span className={getOnboardingStatus() ? "text-green-400" : "text-yellow-400"}>
+            {getOnboardingStatus() ? "Complété" : "À faire"}
+          </span>
+        </div>
+        
+        <div className="text-gray-400">
+          <div>Nom: {getUserName()}</div>
+          <div>Email: {getUserEmail()}</div>
+        </div>
+      </div>
+    </div>
   );
 }

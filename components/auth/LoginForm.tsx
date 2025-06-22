@@ -6,7 +6,7 @@ import { Formik, Form } from "formik";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FormikFieldWithIcon, FormikField } from "@/components/ui/formik";
+import { FormikFieldWithIcon, FormikField, FormikCheckbox } from "@/components/ui/formik";
 import { 
   Zap, 
   ArrowRight,
@@ -21,29 +21,34 @@ import {
   initialLoginValues, 
   type LoginFormValues 
 } from "@/lib/validation-schemas";
+import { useUIStore } from "@/stores/uiStore";
+import { LoadingButton } from "@/components/ui/loading-states";
+import { ErrorDisplay } from "@/components/ui/error-display";
 
 export function LoginForm() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
+  const { setLoading, clearLoading, setError, clearError } = useUIStore();
+
+  const loadingKey = "login-form";
+  const errorKey = "login-form-error";
 
   const handleSubmit = async (values: LoginFormValues, { setSubmitting }: any) => {
-    setIsLoading(true);
-    setError(null);
+    setLoading(loadingKey, true);
+    clearError(errorKey);
     
     try {
       const result = await login(values.email, values.password);
 
       if (!result.success) {
-        setError(result.error || "Email ou mot de passe incorrect");
+        setError(errorKey, result.error || "Email ou mot de passe incorrect");
       }
       // Si la connexion réussit, le hook useAuth gère la redirection
       
     } catch (error) {
       console.error("Erreur de connexion:", error);
-      setError("Une erreur est survenue lors de la connexion");
+      setError(errorKey, "Une erreur est survenue lors de la connexion");
     } finally {
-      setIsLoading(false);
+      setLoading(loadingKey, false);
       setSubmitting(false);
     }
   };
@@ -88,16 +93,7 @@ export function LoginForm() {
         </CardHeader>
 
         <CardContent className="space-y-8 px-8 pb-8">
-          {/* Error Message */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500/10 border border-red-500/20 rounded-lg p-4"
-            >
-              <p className="text-red-400 text-sm">{error}</p>
-            </motion.div>
-          )}
+          <ErrorDisplay errorKey={errorKey} variant="toast" />
 
           <Formik
             initialValues={initialLoginValues}
@@ -137,10 +133,9 @@ export function LoginForm() {
 
                   {/* Remember Me & Forgot Password */}
                   <div className="flex items-center justify-between text-sm pt-2">
-                    <FormikField
+                    <FormikCheckbox
                       name="rememberMe"
                       label="Se souvenir de moi"
-                      type="checkbox"
                     />
                     <Link
                       href="/auth/forgot-password"
@@ -152,23 +147,17 @@ export function LoginForm() {
 
                   {/* Submit Button */}
                   <div className="pt-4">
-                    <Button
+                    <LoadingButton
+                      loadingKey={loadingKey}
                       type="submit"
                       disabled={isSubmitting || !isValid}
                       className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-base font-medium transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Connexion en cours...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center space-x-2">
-                          <span>Se connecter</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </div>
-                      )}
-                    </Button>
+                      <div className="flex items-center justify-center space-x-2">
+                        <span>Se connecter</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </LoadingButton>
                   </div>
                 </motion.div>
               </Form>
@@ -197,20 +186,17 @@ export function LoginForm() {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="space-y-4"
           >
-            <GoogleButton 
-              variant="outline"
-              className="border-gray-600 text-gray-300 hover:bg-gray-800/50 hover:text-white transition-all duration-300 py-3"
-            />
+            <GoogleButton />
           </motion.div>
 
           {/* Sign Up Link */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.9 }}
-            className="text-center text-sm text-gray-400 pt-4"
+            className="text-center text-sm text-gray-400"
           >
-            Pas encore de compte ?{" "}
+            <span>Pas encore de compte ? </span>
             <Link
               href="/auth/register"
               className="text-blue-400 hover:text-blue-300 font-medium transition-colors"

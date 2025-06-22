@@ -1,30 +1,27 @@
-// import { useSession } from "next-auth/react";
-// import { useEffect } from "react";
-// import { useAuthStore } from "@/store/auth-store";
+import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useUserStore } from '@/stores/userStore';
 
-// export function useAuthSync() {
-//   const { data: session, status } = useSession();
-//   const { setUser, setIsAuthenticated, setIsLoading } = useAuthStore();
+export function useAuthSync() {
+  const { data: session, status } = useSession();
+  const { setSession, setLoading, updateOnboardingStatus } = useUserStore();
 
-//   useEffect(() => {
-//     setIsLoading(status === "loading");
-    
-//     if (status === "authenticated" && session?.user) {
-//       setUser({
-//         id: session.user.id as string,
-//         email: session.user.email,
-//         name: session.user.name,
-//         image: session.user.image,
-//       });
-//       setIsAuthenticated(true);
-//     } else if (status === "unauthenticated") {
-//       setUser(null);
-//       setIsAuthenticated(false);
-//     }
-//   }, [session, status, setUser, setIsAuthenticated, setIsLoading]);
+  useEffect(() => {
+    // Synchroniser la session avec le store
+    setSession(session);
+    setLoading(status === 'loading');
+  }, [session, status, setSession, setLoading]);
 
-//   return {
-//     isLoading: status === "loading",
-//     isAuthenticated: status === "authenticated",
-//   };
-// } 
+  // Fonction pour mettre à jour le statut d'onboarding
+  const updateOnboarding = (completed: boolean) => {
+    updateOnboardingStatus(completed);
+  };
+
+  return {
+    session,
+    status,
+    updateOnboarding,
+    isAuthenticated: !!session?.user,
+    isLoading: status === 'loading'
+  };
+} 

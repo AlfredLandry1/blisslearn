@@ -17,6 +17,13 @@ BlissLearn est une plateforme d'agrégation et de recommandation de parcours d'a
 - UI responsive, moderne, inspirée des meilleurs design systems
 - Intégration OAuth (Google, etc.)
 
+## 🚧 Fonctionnalités futures
+- **Parcours d'apprentissage structurés** : Séquences de cours organisées logiquement
+- **Certifications et badges** : Système de validation et reconnaissance
+- **Recommandations IA avancées** : Suggestions personnalisées basées sur l'apprentissage
+- **Parcours thématiques** : Frontend, Backend, Data Science, etc.
+- **Progression guidée** : Parcours recommandés pour débutants et experts
+
 ## 🛠️ Installation
 1. **Cloner le repo**
    ```sh
@@ -36,7 +43,7 @@ BlissLearn est une plateforme d'agrégation et de recommandation de parcours d'a
    ```
 5. **Démarrer le projet**
    ```sh
-   npm run dev
+npm run dev
    ```
 
 ## 🤝 Contribution

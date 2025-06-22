@@ -18,11 +18,15 @@ import { OnboardingStep6 } from "./steps/Step6";
 import { OnboardingStep7 } from "./steps/Step7";
 import { OnboardingData } from "./types";
 import { useRouter } from "next/navigation";
+import { useUserStore } from "@/stores/userStore";
+import { useUIStore } from "@/stores/uiStore";
 
 const TOTAL_STEPS = 7;
 
 export function OnboardingWizard() {
   const router = useRouter();
+  const { updateOnboardingStatus } = useUserStore();
+  const { addNotification } = useUIStore();
   const [currentStep, setCurrentStep] = useState(1);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     learningObjectives: [],
@@ -74,6 +78,18 @@ export function OnboardingWizard() {
       const result = await response.json();
       console.log("Onboarding sauvegardé:", result);
 
+      // Mettre à jour le statut d'onboarding dans le store global
+      updateOnboardingStatus(true);
+
+      // Ajouter une notification de succès
+      addNotification({
+        id: `onboarding-completed-${Date.now()}`,
+        type: "success",
+        title: "Onboarding complété !",
+        message: "Votre profil d'apprentissage a été configuré avec succès. Vous pouvez maintenant commencer votre parcours d'apprentissage personnalisé.",
+        duration: 5000
+      });
+
       // Rediriger vers le dashboard après sauvegarde réussie
       router.push("/dashboard");
     } catch (error) {
@@ -115,7 +131,8 @@ export function OnboardingWizard() {
       data: onboardingData,
       updateData: updateOnboardingData,
       onNext: nextStep,
-      onPrev: prevStep
+      onPrev: prevStep,
+      isLoading: isLoading
     };
 
     switch (currentStep) {

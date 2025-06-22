@@ -41,12 +41,15 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { label: "Tableau de bord", href: "/dashboard", icon: Home },
   {
-    label: "Mes cours",
-    href: "/dashboard/courses",
+    label: "Explorer les cours",
+    href: "/dashboard/explorer",
     icon: BookOpen,
-    badge: "3",
   },
-  { label: "Mon parcours", href: "/dashboard/progress", icon: Target },
+  {
+    label: "Mes cours suivis",
+    href: "/dashboard/my-courses",
+    icon: Target,
+  },
   { label: "Certifications", href: "/dashboard/certifications", icon: Trophy },
   { label: "Calendrier", href: "/dashboard/calendar", icon: Calendar },
   { label: "Statistiques", href: "/dashboard/stats", icon: BarChart3 },
@@ -54,7 +57,6 @@ const sidebarItems: SidebarItem[] = [
     label: "Notifications",
     href: "/dashboard/notifications",
     icon: Bell,
-    badge: "2",
   },
   { label: "Paramètres", href: "/dashboard/settings", icon: Settings },
 ];

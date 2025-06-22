@@ -8,40 +8,81 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FormikFieldWithIcon } from "@/components/ui/formik";
 import { 
-  Zap, 
-  ArrowRight,
-  ArrowLeft,
   Mail,
-  CheckCircle
+  ArrowLeft,
+  CheckCircle,
+  AlertCircle,
+  Zap
 } from "lucide-react";
 import Link from "next/link";
+import { useUIStore } from "@/stores/uiStore";
+import { LoadingButton } from "@/components/ui/loading-states";
+import { ErrorDisplay } from "@/components/ui/error-display";
 import { 
   forgotPasswordSchema, 
   initialForgotPasswordValues, 
   type ForgotPasswordFormValues 
 } from "@/lib/validation-schemas";
 
-export function ForgotPasswordForm() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isEmailSent, setIsEmailSent] = useState(false);
+interface ForgotPasswordFormProps {
+  onSuccess?: () => void;
+}
 
-  const handleSubmit = async (values: ForgotPasswordFormValues, { setSubmitting }: any) => {
-    setIsLoading(true);
+export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
+  const { setLoading, clearLoading, addNotification } = useUIStore();
+  const [isEmailSent, setIsEmailSent] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+
+  const loadingKey = "forgot-password-form";
+  const errorKey = "forgot-password-form-error";
+
+  const handleSubmit = async (values: ForgotPasswordFormValues, { setSubmitting, resetForm }: any) => {
+    setLoading(loadingKey, true);
     
     try {
-      // Simuler l'envoi d'email
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log("Email de réinitialisation envoyé à:", values.email);
-      setIsEmailSent(true);
-      // Ici vous ajouteriez votre logique d'envoi d'email
-      
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: values.email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setIsEmailSent(true);
+        setUserEmail(values.email);
+        resetForm();
+        
+        addNotification({
+          id: `password-reset-${Date.now()}`,
+          type: "success",
+          title: "Email envoyé",
+          message: "Un email de réinitialisation a été envoyé à votre adresse email.",
+          duration: 5000
+        });
+      } else {
+        throw new Error(data.error || "Erreur lors de l'envoi de l'email");
+      }
     } catch (error) {
-      console.error("Erreur d'envoi d'email:", error);
+      console.error("Erreur lors de la demande de réinitialisation:", error);
+      addNotification({
+        id: `password-reset-error-${Date.now()}`,
+        type: "error",
+        title: "Erreur",
+        message: error instanceof Error ? error.message : "Impossible d'envoyer l'email de réinitialisation",
+        duration: 5000
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(loadingKey, false);
       setSubmitting(false);
     }
+  };
+
+  const handleResendEmail = () => {
+    setIsEmailSent(false);
+    setUserEmail("");
   };
 
   if (isEmailSent) {
@@ -59,8 +100,11 @@ export function ForgotPasswordForm() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="mb-6"
             >
+              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-400" />
+              </div>
               <Badge className="mb-4 bg-green-500/10 text-green-400 border-green-500/20">
-                <CheckCircle className="w-3 h-3 mr-2" />
+                <Zap className="w-3 h-3 mr-2" />
                 Email envoyé
               </Badge>
             </motion.div>
@@ -71,7 +115,7 @@ export function ForgotPasswordForm() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="text-2xl sm:text-3xl font-bold text-white mb-3"
             >
-              Email envoyé !
+              Vérifiez votre email
             </motion.h1>
             
             <motion.p
@@ -80,38 +124,57 @@ export function ForgotPasswordForm() {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-gray-400 text-sm sm:text-base"
             >
-              Nous avons envoyé un lien de réinitialisation à votre adresse email.
+              Nous avons envoyé un lien de réinitialisation à :
             </motion.p>
+            
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="mt-3"
+            >
+              <span className="text-blue-400 font-medium">{userEmail}</span>
+            </motion.div>
           </CardHeader>
 
-          <CardContent className="space-y-8 px-8 pb-8">
+          <CardContent className="space-y-6 px-8 pb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-              className="text-center space-y-6"
+              transition={{ duration: 0.6, delay: 0.6 }}
+              className="space-y-4"
             >
-              <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  Vérifiez votre boîte de réception et cliquez sur le lien pour réinitialiser votre mot de passe.
-                </p>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-300">
+                    <p className="font-medium mb-2">Instructions :</p>
+                    <ul className="space-y-1 text-xs">
+                      <li>• Vérifiez votre boîte de réception</li>
+                      <li>• Cliquez sur le lien dans l'email</li>
+                      <li>• Créez votre nouveau mot de passe</li>
+                      <li>• Le lien expire dans 1 heure</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
-              
-              <div className="space-y-4">
+
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button
-                  onClick={() => setIsEmailSent(false)}
                   variant="outline"
-                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-800/50 hover:text-white transition-all duration-300 py-3"
+                  onClick={handleResendEmail}
+                  className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Réessayer
+                  <Mail className="w-4 h-4 mr-2" />
+                  Renvoyer l'email
                 </Button>
                 
-                <Link href="/auth/login">
+                <Link href="/auth/login" className="flex-1">
                   <Button
-                    variant="outline"
-                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-800/50 hover:text-white transition-all duration-300 py-3"
+                    variant="default"
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                   >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
                     Retour à la connexion
                   </Button>
                 </Link>
@@ -137,7 +200,7 @@ export function ForgotPasswordForm() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="mb-6"
           >
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/20">
+            <Badge className="mb-4 bg-blue-500/10 text-blue-400 border-blue-500/20">
               <Zap className="w-3 h-3 mr-2" />
               Mot de passe oublié
             </Badge>
@@ -163,6 +226,8 @@ export function ForgotPasswordForm() {
         </CardHeader>
 
         <CardContent className="space-y-8 px-8 pb-8">
+          <ErrorDisplay errorKey={errorKey} variant="toast" />
+
           <Formik
             initialValues={initialForgotPasswordValues}
             validationSchema={forgotPasswordSchema}
@@ -184,28 +249,21 @@ export function ForgotPasswordForm() {
                     placeholder="votre@email.com"
                     icon={Mail}
                     required
-                    className="mb-6"
                   />
 
                   {/* Submit Button */}
                   <div className="pt-4">
-                    <Button
+                    <LoadingButton
+                      loadingKey={loadingKey}
                       type="submit"
                       disabled={isSubmitting || !isValid}
-                      className="w-full bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white py-4 text-base font-medium transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-base font-medium transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Envoi en cours...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center space-x-2">
-                          <span>Envoyer le lien</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </div>
-                      )}
-                    </Button>
+                      <div className="flex items-center justify-center space-x-2">
+                        <span>Envoyer le lien de réinitialisation</span>
+                        <Mail className="w-4 h-4" />
+                      </div>
+                    </LoadingButton>
                   </div>
                 </motion.div>
               </Form>
@@ -214,17 +272,17 @@ export function ForgotPasswordForm() {
 
           {/* Back to Login */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.7 }}
-            className="text-center text-sm text-gray-400 pt-6"
+            className="text-center text-sm text-gray-400"
           >
+            <span>Vous vous souvenez de votre mot de passe ? </span>
             <Link
               href="/auth/login"
-              className="text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center justify-center space-x-2"
+              className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Retour à la connexion</span>
+              Se connecter
             </Link>
           </motion.div>
         </CardContent>

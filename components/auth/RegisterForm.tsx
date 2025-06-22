@@ -6,7 +6,7 @@ import { Formik, Form } from "formik";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FormikFieldWithIcon, FormikField } from "@/components/ui/formik";
+import { FormikFieldWithIcon, FormikField, FormikCheckbox } from "@/components/ui/formik";
 import { 
   Zap, 
   ArrowRight,
@@ -23,16 +23,21 @@ import {
   initialRegisterValues, 
   type RegisterFormValues 
 } from "@/lib/validation-schemas";
+import { useUIStore } from "@/stores/uiStore";
+import { LoadingButton } from "@/components/ui/loading-states";
+import { ErrorDisplay } from "@/components/ui/error-display";
 
 export function RegisterForm() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
+  const { setLoading, clearLoading, setError, clearError } = useUIStore();
+
+  const loadingKey = "register-form";
+  const errorKey = "register-form-error";
 
   const handleSubmit = async (values: RegisterFormValues, { setSubmitting }: any) => {
-    setIsLoading(true);
-    setError(null);
+    setLoading(loadingKey, true);
+    clearError(errorKey);
     setSuccess(null);
     
     try {
@@ -51,7 +56,7 @@ export function RegisterForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Erreur lors de l'inscription");
+        setError(errorKey, data.error || "Erreur lors de l'inscription");
       } else {
         setSuccess("Compte créé avec succès ! Redirection vers la connexion...");
         setTimeout(() => {
@@ -61,9 +66,9 @@ export function RegisterForm() {
       
     } catch (error) {
       console.error("Erreur d'inscription:", error);
-      setError("Une erreur est survenue lors de l'inscription");
+      setError(errorKey, "Une erreur est survenue lors de l'inscription");
     } finally {
-      setIsLoading(false);
+      setLoading(loadingKey, false);
       setSubmitting(false);
     }
   };
@@ -117,16 +122,7 @@ export function RegisterForm() {
         </CardHeader>
 
         <CardContent className="space-y-8 px-8 pb-8">
-          {/* Error Message */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500/10 border border-red-500/20 rounded-lg p-4"
-            >
-              <p className="text-red-400 text-sm">{error}</p>
-            </motion.div>
-          )}
+          <ErrorDisplay errorKey={errorKey} variant="toast" />
 
           {/* Success Message */}
           {success && (
@@ -195,27 +191,6 @@ export function RegisterForm() {
                     required
                     className="mb-4"
                   />
-                  
-                  {/* Password Requirements */}
-                  {values.password.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="mt-4 mb-6 space-y-2 bg-gray-800/30 rounded-lg p-4 border border-gray-700"
-                    >
-                      <p className="text-xs font-medium text-gray-300 mb-3">Exigences du mot de passe :</p>
-                      {passwordRequirements.map((requirement, index) => (
-                        <div key={index} className="flex items-center space-x-2 text-xs">
-                          <CheckCircle 
-                            className={`w-3 h-3 ${requirement.met(values.password) ? 'text-green-400' : 'text-gray-500'}`} 
-                          />
-                          <span className={requirement.met(values.password) ? 'text-green-400' : 'text-gray-500'}>
-                            {requirement.label}
-                          </span>
-                        </div>
-                      ))}
-                    </motion.div>
-                  )}
 
                   {/* Confirm Password Field */}
                   <FormikFieldWithIcon
@@ -226,38 +201,62 @@ export function RegisterForm() {
                     icon={Lock}
                     showPasswordToggle
                     required
-                    className="mb-6"
+                    className="mb-4"
                   />
+                  
+                  {/* Password Requirements */}
+                  {values.password.length > 0 && (
+                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
+                      <p className="text-sm text-gray-300 font-medium">Exigences du mot de passe :</p>
+                      <div className="space-y-1">
+                        {passwordRequirements.map((req, index) => (
+                          <div key={index} className="flex items-center gap-2 text-xs">
+                            <CheckCircle 
+                              className={`w-3 h-3 ${req.met(values.password) ? 'text-green-400' : 'text-gray-500'}`} 
+                            />
+                            <span className={req.met(values.password) ? 'text-green-400' : 'text-gray-400'}>
+                              {req.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Password Confirmation Check */}
+                      {values.confirmPassword.length > 0 && (
+                        <div className="pt-2 border-t border-gray-700">
+                          <div className="flex items-center gap-2 text-xs">
+                            <CheckCircle 
+                              className={`w-3 h-3 ${values.password === values.confirmPassword ? 'text-green-400' : 'text-gray-500'}`} 
+                            />
+                            <span className={values.password === values.confirmPassword ? 'text-green-400' : 'text-gray-400'}>
+                              Les mots de passe correspondent
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Terms and Conditions */}
-                  <div className="pt-2">
-                    <FormikField
-                      name="acceptTerms"
-                      label="J'accepte les conditions d'utilisation et la politique de confidentialité"
-                      type="checkbox"
-                      required
-                    />
-                  </div>
+                  <FormikCheckbox
+                    name="acceptTerms"
+                    label="J'accepte les conditions d'utilisation et la politique de confidentialité"
+                    required
+                  />
 
                   {/* Submit Button */}
                   <div className="pt-4">
-                    <Button
+                    <LoadingButton
+                      loadingKey={loadingKey}
                       type="submit"
                       disabled={isSubmitting || !isValid}
                       className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 text-base font-medium transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Création du compte...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center space-x-2">
-                          <span>Créer mon compte</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </div>
-                      )}
-                    </Button>
+                      <div className="flex items-center justify-center space-x-2">
+                        <span>Créer mon compte</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </LoadingButton>
                   </div>
                 </motion.div>
               </Form>
@@ -286,10 +285,7 @@ export function RegisterForm() {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="space-y-4"
           >
-            <GoogleButton 
-              variant="outline"
-              className="border-gray-600 text-gray-300 hover:bg-gray-800/50 hover:text-white transition-all duration-300 py-3"
-            />
+            <GoogleButton />
           </motion.div>
 
           {/* Sign In Link */}
@@ -297,17 +293,15 @@ export function RegisterForm() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.9 }}
-            className="text-center pt-4"
+            className="text-center text-sm text-gray-400"
           >
-            <p className="text-gray-400 text-sm">
-              Déjà un compte ?{" "}
-              <Link
-                href="/auth/login"
-                className="text-green-400 hover:text-green-300 transition-colors font-medium"
-              >
-                Se connecter
-              </Link>
-            </p>
+            <span>Déjà un compte ? </span>
+            <Link
+              href="/auth/login"
+              className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+            >
+              Se connecter
+            </Link>
           </motion.div>
         </CardContent>
       </Card>

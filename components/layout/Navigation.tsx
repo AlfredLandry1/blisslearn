@@ -5,12 +5,12 @@ import { Sparkles, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useUserStore } from "@/stores/userStore";
 import React from "react";
 
 export const Navigation = React.memo(function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { data: session } = useSession();
+  const { isAuthenticated, user } = useUserStore();
 
   return (
     <>
@@ -64,10 +64,10 @@ export const Navigation = React.memo(function Navigation() {
           >
             À propos
           </a>
-          <Link href="/courses" className="flex items-center gap-2 text-gray-300 hover:text-blue-400 transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 group">
+          <Link href="/dashboard/my-courses" className="flex items-center gap-2 text-gray-300 hover:text-blue-400 transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 group">
             Cours
           </Link>
-          {session?.user ? (
+          {isAuthenticated ? (
             <Link href="/dashboard">
               <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" aria-label="Action">
                 Continuer vers mon espace
@@ -146,11 +146,11 @@ export const Navigation = React.memo(function Navigation() {
               >
                 À propos
               </a>
-              <Link href="/courses" className="flex items-center gap-2 text-gray-300 hover:text-blue-400 transition-colors py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 group" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href="/dashboard/my-courses" className="flex items-center gap-2 text-gray-300 hover:text-blue-400 transition-colors py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 group" onClick={() => setIsMobileMenuOpen(false)}>
                 Cours
               </Link>
               <div className="pt-4 space-y-3">
-                {session?.user ? (
+                {isAuthenticated ? (
                   <Link href="/dashboard">
                     <Button 
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
