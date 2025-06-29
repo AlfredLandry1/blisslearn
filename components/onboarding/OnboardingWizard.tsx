@@ -83,7 +83,6 @@ export function OnboardingWizard() {
 
       // Ajouter une notification de succès
       addNotification({
-        id: `onboarding-completed-${Date.now()}`,
         type: "success",
         title: "Onboarding complété !",
         message: "Votre profil d'apprentissage a été configuré avec succès. Vous pouvez maintenant commencer votre parcours d'apprentissage personnalisé.",

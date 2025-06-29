@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from '@/app/api/auth/[...nextauth]/authOptions';
 
 // POST - Générer et télécharger le certificat
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -25,7 +26,7 @@ export async function POST(
     // Récupérer la certification
     const certification = await prisma.certification.findFirst({
       where: {
-        id: params.id,
+        id: id,
         userId: user.id
       }
     });

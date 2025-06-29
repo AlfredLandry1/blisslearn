@@ -95,7 +95,7 @@ BlissLearn est une plateforme d'agrégation et de recommandation de parcours d'a
 
 3. **Configuration de l'environnement**
    ```bash
-   cp .env.example .env.local
+   cp env.example .env.local
    ```
    
    Remplir les variables dans `.env.local` :

@@ -45,7 +45,7 @@ export default function CoursesPageClient({
   const sortOrder = searchParams?.sortOrder || "asc";
 
   const { 
-    isLoading, 
+    isKeyLoading, 
     setLoading, 
     clearLoading, 
     setError, 
@@ -160,7 +160,7 @@ export default function CoursesPageClient({
     fetchCourses(1);
   };
 
-  const loading = isLoading(loadingKey) || isLoadingData;
+  const loading = isKeyLoading(loadingKey) || isLoadingData;
   const error = getError(errorKey);
 
   // Vérifier s'il y a des filtres actifs

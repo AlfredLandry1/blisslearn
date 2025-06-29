@@ -91,7 +91,6 @@ export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProp
       resetForm();
       
       addNotification({
-        id: `password-reset-${Date.now()}`,
         type: "success",
         title: "Email envoyé",
         message: data.message || "Un email de réinitialisation a été envoyé à votre adresse email.",

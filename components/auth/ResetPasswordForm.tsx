@@ -128,7 +128,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
       resetForm();
       
       addNotification({
-        id: `password-reset-success-${Date.now()}`,
         type: "success",
         title: "Mot de passe mis à jour",
         message: data.message || "Votre mot de passe a été réinitialisé avec succès. Un email de confirmation vous a été envoyé.",

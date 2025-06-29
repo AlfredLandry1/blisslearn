@@ -57,7 +57,6 @@ export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPass
 
       if (response.ok) {
         addNotification({
-          id: `password-set-${Date.now()}`,
           type: "success",
           title: "Mot de passe configuré",
           message: "Votre mot de passe a été configuré avec succès. Vous pouvez maintenant vous connecter sans Google.",
@@ -74,7 +73,6 @@ export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPass
     } catch (error) {
       console.error("Erreur lors de la configuration du mot de passe:", error);
       addNotification({
-        id: `password-error-${Date.now()}`,
         type: "error",
         title: "Erreur",
         message: error instanceof Error ? error.message : "Impossible de configurer le mot de passe",

@@ -72,8 +72,11 @@ interface ProgressData {
   favorite: boolean;
 }
 
-export default function CourseProgressPage({ params }: { params: { id: string } }) {
+export default function CourseProgressPage() {
   const router = useRouter();
+  const params = useParams();
+  const courseId = params.id as string;
+  
   const [course, setCourse] = useState<Course | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,21 +91,21 @@ export default function CourseProgressPage({ params }: { params: { id: string } 
   
   const { updateCourseProgress, refreshStats } = useCourseStore();
 
-  const loadingKey = `course-progress-${params.id}`;
+  const loadingKey = `course-progress-${courseId}`;
   const loading = isKeyLoading(loadingKey);
 
   useEffect(() => {
-    if (params.id) {
+    if (courseId) {
       fetchCourseData();
     }
-  }, [params.id]);
+  }, [courseId]);
 
   const fetchCourseData = async () => {
     setLoading(loadingKey, true);
     try {
       const [courseResponse, progressResponse] = await Promise.all([
-        fetch(`/api/courses/${params.id}`),
-        fetch(`/api/courses/progress?courseId=${params.id}`)
+        fetch(`/api/courses/${courseId}`),
+        fetch(`/api/courses/progress?courseId=${courseId}`)
       ]);
 
       if (courseResponse.ok && progressResponse.ok) {
@@ -145,7 +148,7 @@ export default function CourseProgressPage({ params }: { params: { id: string } 
   const handleStopCourse = async () => {
     setIsStoppingCourse(true);
     try {
-      const response = await fetch(`/api/courses/progress?courseId=${params.id}`, {
+      const response = await fetch(`/api/courses/progress?courseId=${courseId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" }
       });

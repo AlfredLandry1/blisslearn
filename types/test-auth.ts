@@ -9,7 +9,7 @@ async function testAuth() {
     // Récupérer tous les utilisateurs avec leurs informations
     const users = await prisma.user.findMany({
       include: {
-        account: true
+        accounts: true
       }
     });
 
@@ -22,7 +22,7 @@ async function testAuth() {
         name: user.name,
         provider: user.provider,
         hasPassword: !!user.password,
-        accounts: user.account.map(acc => ({
+        accounts: user.accounts.map(acc => ({
           provider: acc.provider,
           type: acc.type
         }))
@@ -32,14 +32,14 @@ async function testAuth() {
     // Vérifier spécifiquement les utilisateurs Google
     const googleUsers = await prisma.user.findMany({
       where: {
-        account: {
+        accounts: {
           some: {
             provider: 'google'
           }
         }
       },
       include: {
-        account: true
+        accounts: true
       }
     });
 

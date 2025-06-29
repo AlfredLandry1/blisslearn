@@ -7,8 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "cleanup-notifications": "node scripts/cleanup-notifications.js",
-    "cleanup-unverified-users": "node scripts/cleanup-unverified-users.js"
+    "format": "prettier --write .",
+    "type-check": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "cleanup:notifications": "node scripts/cleanup-notifications.js",
+    "cleanup:users": "node scripts/cleanup-unverified-users.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",

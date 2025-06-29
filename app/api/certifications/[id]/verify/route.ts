@@ -4,13 +4,14 @@ import { prisma } from "@/lib/prisma";
 // GET - Vérifier une certification en ligne
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Récupérer la certification
     const certification = await prisma.certification.findUnique({
       where: {
-        id: params.id
+        id: id
       },
       include: {
         user: {

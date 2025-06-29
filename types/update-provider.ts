@@ -9,14 +9,14 @@ async function updateUserProviders() {
     // Récupérer tous les utilisateurs qui ont un compte Google
     const usersWithGoogleAccounts = await prisma.user.findMany({
       where: {
-        account: {
+        accounts: {
           some: {
             provider: 'google'
           }
         }
       },
       include: {
-        account: true
+        accounts: true
       }
     });
 
@@ -24,7 +24,7 @@ async function updateUserProviders() {
 
     // Mettre à jour le champ provider pour chaque utilisateur
     for (const user of usersWithGoogleAccounts) {
-      const hasGoogleAccount = user.account.some(acc => acc.provider === 'google');
+      const hasGoogleAccount = user.accounts.some(acc => acc.provider === 'google');
       
       if (hasGoogleAccount) {
         await prisma.user.update({
