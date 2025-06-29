@@ -29,7 +29,7 @@ interface ForgotPasswordFormProps {
 }
 
 export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
-  const { setLoading, clearLoading, addNotification } = useUIStore();
+  const { setLoading, clearLoading, setError, clearError, addNotification } = useUIStore();
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [userEmail, setUserEmail] = useState("");
 
@@ -38,6 +38,7 @@ export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProp
 
   const handleSubmit = async (values: ForgotPasswordFormValues, { setSubmitting, resetForm }: any) => {
     setLoading(loadingKey, true);
+    clearError(errorKey);
     
     try {
       const response = await fetch("/api/auth/forgot-password", {
@@ -48,32 +49,66 @@ export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProp
         }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setIsEmailSent(true);
-        setUserEmail(values.email);
-        resetForm();
+      // Gérer les erreurs de réponse
+      if (!response.ok) {
+        let errorMessage = "Erreur lors de l'envoi de l'email";
         
-        addNotification({
-          id: `password-reset-${Date.now()}`,
-          type: "success",
-          title: "Email envoyé",
-          message: "Un email de réinitialisation a été envoyé à votre adresse email.",
-          duration: 5000
-        });
-      } else {
-        throw new Error(data.error || "Erreur lors de l'envoi de l'email");
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch (parseError) {
+          // Si on ne peut pas parser la réponse JSON, utiliser le message par défaut
+        }
+        
+        // Gestion spécifique des erreurs selon le code de statut
+        if (response.status === 404) {
+          errorMessage = "Aucun compte trouvé avec cette adresse email. Vérifiez votre saisie ou créez un nouveau compte.";
+        } else if (response.status === 400) {
+          if (errorMessage.includes("Google")) {
+            errorMessage = "Ce compte utilise la connexion Google. Utilisez le bouton 'Se connecter avec Google' pour accéder à votre compte.";
+          } else if (errorMessage.includes("Format")) {
+            errorMessage = "Format d'email invalide. Veuillez saisir une adresse email valide.";
+          }
+        } else if (response.status === 500) {
+          errorMessage = "Erreur serveur. Veuillez réessayer plus tard ou contactez notre support.";
+        }
+        
+        setError(errorKey, errorMessage);
+        return;
       }
-    } catch (error) {
-      console.error("Erreur lors de la demande de réinitialisation:", error);
+
+      // Traitement de la réponse réussie
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        // Si on ne peut pas parser la réponse JSON, utiliser des valeurs par défaut
+        data = { message: "Un email de réinitialisation a été envoyé à votre adresse email." };
+      }
+
+      setIsEmailSent(true);
+      setUserEmail(values.email);
+      resetForm();
+      
       addNotification({
-        id: `password-reset-error-${Date.now()}`,
-        type: "error",
-        title: "Erreur",
-        message: error instanceof Error ? error.message : "Impossible d'envoyer l'email de réinitialisation",
+        id: `password-reset-${Date.now()}`,
+        type: "success",
+        title: "Email envoyé",
+        message: data.message || "Un email de réinitialisation a été envoyé à votre adresse email.",
         duration: 5000
       });
+      
+    } catch (error) {
+      // Gestion des erreurs réseau ou autres erreurs
+      let errorMessage = "Impossible d'envoyer l'email de réinitialisation";
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = "Erreur de connexion. Vérifiez votre connexion internet et réessayez.";
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorKey, errorMessage);
     } finally {
       setLoading(loadingKey, false);
       setSubmitting(false);
@@ -150,10 +185,11 @@ export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProp
                   <div className="text-sm text-blue-300">
                     <p className="font-medium mb-2">Instructions :</p>
                     <ul className="space-y-1 text-xs">
-                      <li>• Vérifiez votre boîte de réception</li>
+                      <li>• Vérifiez votre boîte de réception et vos spams</li>
                       <li>• Cliquez sur le lien dans l'email</li>
                       <li>• Créez votre nouveau mot de passe</li>
                       <li>• Le lien expire dans 1 heure</li>
+                      <li>• Vous recevrez un email de confirmation</li>
                     </ul>
                   </div>
                 </div>
@@ -226,7 +262,7 @@ export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProp
         </CardHeader>
 
         <CardContent className="space-y-8 px-8 pb-8">
-          <ErrorDisplay errorKey={errorKey} variant="toast" />
+          <ErrorDisplay errorKey={errorKey} variant="inline" />
 
           <Formik
             initialValues={initialForgotPasswordValues}

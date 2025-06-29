@@ -6,4 +6,5 @@ export { UserInfoCard } from "./UserInfoCard";
 export { ProgressOverview } from "./ProgressOverview";
 export { RecentActivity } from "./RecentActivity";
 export { QuickStats } from "./QuickStats";
-export { UpcomingEvents } from "./UpcomingEvents"; 
+export { UpcomingEvents } from "./UpcomingEvents";
+export { PredictionCard } from "./PredictionCard"; 

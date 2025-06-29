@@ -1,120 +1,157 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { 
   Sparkles, 
-  TrendingUp, 
-  Target, 
   Star, 
+  Target, 
+  ExternalLink, 
+  Zap, 
+  TrendingUp, 
   Clock, 
-  ExternalLink,
-  ArrowRight,
-  Lightbulb,
-  Zap
+  Users 
 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useUIStore } from "@/stores/uiStore";
 import { ProgressTracker } from "./ProgressTracker";
+import { CourseCard } from "./CourseCard";
 
 interface Recommendation {
   id: number;
   title: string;
   description: string;
   platform: string;
-  level: string;
-  rating: number;
-  url: string;
+  level_normalized?: string;
+  rating_numeric?: number;
+  link?: string;
   reason: string;
   score: number;
-  skills?: string;
-  duration?: string;
-  price?: string;
 }
 
 interface RecommendationsData {
   recommendations: Recommendation[];
-  preferences: {
-    platforms: Record<string, number>;
-    levels: Record<string, number>;
-    averageProgress: number;
-    completionRate: number;
+  stats: {
+    totalCourses: number;
+    completedCourses: number;
+    averageScore: number;
+    topPlatform: string;
   };
-  totalFound: number;
 }
 
 interface CourseRecommendationsProps {
-  type?: 'all' | 'similar' | 'next-level' | 'trending';
   limit?: number;
   showTitle?: boolean;
   className?: string;
+  courses?: any[];
+  title?: string;
+  subtitle?: string;
+  isLoading?: boolean;
 }
 
 export function CourseRecommendations({ 
-  type = 'all', 
   limit = 6, 
   showTitle = true,
-  className = ""
+  className = "",
+  courses = [],
+  title: propTitle = "Cours recommandés",
+  subtitle: propSubtitle = "Découvrez nos meilleures formations",
+  isLoading = false
 }: CourseRecommendationsProps) {
   const { data: session, status: authStatus } = useSession();
   const [recommendations, setRecommendations] = useState<RecommendationsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedCourse, setSelectedCourse] = useState<Recommendation | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const { setLoading: setGlobalLoading, clearLoading, addNotification } = useUIStore();
-  const loadingKey = `recommendations-${type}`;
+  const { addNotification, setLoading, isKeyLoading } = useUIStore();
+  const loadingKey = "course-recommendations";
+  const loading = isKeyLoading(loadingKey);
 
   useEffect(() => {
-    if (authStatus !== "authenticated") return;
-    
-    setGlobalLoading(loadingKey, true);
-    fetch(`/api/courses/recommendations?type=${type}&limit=${limit}`)
-      .then((res) => res.json())
-      .then((data) => {
+    if (authStatus === "authenticated" && session?.user?.id) {
+      fetchRecommendations();
+    } else if (authStatus === "unauthenticated") {
+      setLoading(loadingKey, false);
+    }
+  }, [authStatus, session?.user?.id]);
+
+  const fetchRecommendations = async () => {
+    setLoading(loadingKey, true);
+    try {
+      const response = await fetch("/api/courses/recommendations");
+      if (response.ok) {
+        const data = await response.json();
         setRecommendations(data);
-        setGlobalLoading(loadingKey, false);
-        setLoading(false);
-      })
-      .catch(() => {
-        addNotification({
-          id: `recommendations-error-${Date.now()}`,
-          type: "error",
-          title: "Erreur",
-          message: "Impossible de charger les recommandations",
-          duration: 5000
-        });
-        setGlobalLoading(loadingKey, false);
-        setLoading(false);
+      } else {
+        throw new Error("Erreur lors du chargement des recommandations");
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des recommandations:", error);
+      setError("Impossible de charger les recommandations");
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: "Impossible de charger les recommandations",
+        duration: 5000
       });
-  }, [authStatus, type, limit, setGlobalLoading, clearLoading, addNotification, loadingKey]);
+    } finally {
+      setLoading(loadingKey, false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setLoading(loadingKey, true);
+    try {
+      const response = await fetch("/api/courses/recommendations?refresh=true");
+      if (response.ok) {
+        const data = await response.json();
+        setRecommendations(data);
+        addNotification({
+          type: "success",
+          title: "Recommandations mises à jour",
+          message: "Les recommandations ont été actualisées",
+          duration: 3000
+        });
+      } else {
+        throw new Error("Erreur lors de la mise à jour");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour des recommandations:", error);
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: "Impossible de mettre à jour les recommandations",
+        duration: 5000
+      });
+    } finally {
+      setLoading(loadingKey, false);
+    }
+  };
 
   const handleStartCourse = async (course: Recommendation) => {
     try {
-      const response = await fetch('/api/courses/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/courses/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseId: course.id,
-          status: 'in_progress',
-          progressPercentage: 0
+          status: "in_progress",
+          startedAt: new Date().toISOString()
         })
       });
 
       if (response.ok) {
         addNotification({
-          id: `course-started-${Date.now()}`,
           type: "success",
           title: "Cours ajouté !",
-          message: `"${course.title}" a été ajouté à vos cours en cours`,
+          message: `"${course.title}" a été ajouté à vos cours en cours.`,
           duration: 3000
         });
       }
     } catch (error) {
       addNotification({
-        id: `course-error-${Date.now()}`,
         type: "error",
         title: "Erreur",
         message: "Impossible d'ajouter le cours",
@@ -124,49 +161,112 @@ export function CourseRecommendations({
   };
 
   const getReasonIcon = (reason: string) => {
-    if (reason.includes("Similaire")) return <Sparkles className="w-4 h-4" />;
-    if (reason.includes("Niveau suivant")) return <Target className="w-4 h-4" />;
-    if (reason.includes("populaire")) return <TrendingUp className="w-4 h-4" />;
-    return <Lightbulb className="w-4 h-4" />;
+    switch (reason.toLowerCase()) {
+      case "progression":
+        return <TrendingUp className="w-4 h-4 text-green-400" />;
+      case "popularité":
+        return <Users className="w-4 h-4 text-blue-400" />;
+      case "récent":
+        return <Clock className="w-4 h-4 text-orange-400" />;
+      default:
+        return <Sparkles className="w-4 h-4 text-purple-400" />;
+    }
   };
 
   const getReasonColor = (reason: string) => {
-    if (reason.includes("Similaire")) return "text-blue-400 bg-blue-900/20 border-blue-600";
-    if (reason.includes("Niveau suivant")) return "text-green-400 bg-green-900/20 border-green-600";
-    if (reason.includes("populaire")) return "text-orange-400 bg-orange-900/20 border-orange-600";
-    return "text-purple-400 bg-purple-900/20 border-purple-600";
+    switch (reason.toLowerCase()) {
+      case "progression":
+        return "bg-green-900/40 text-green-300 border-green-500/30";
+      case "popularité":
+        return "bg-blue-900/40 text-blue-300 border-blue-500/30";
+      case "récent":
+        return "bg-orange-900/40 text-orange-300 border-orange-500/30";
+      default:
+        return "bg-purple-900/40 text-purple-300 border-purple-500/30";
+    }
   };
 
-  if (authStatus === "loading" || loading) {
+  if (authStatus === "loading" || loading || isLoading) {
     return (
       <div className={`space-y-4 ${className}`}>
         {showTitle && (
-          <div className="animate-pulse">
-            <div className="h-6 bg-gray-800 rounded w-1/3 mb-2"></div>
-            <div className="h-4 bg-gray-800 rounded w-1/2"></div>
+          <div className="text-center">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+              {propTitle}
+            </h2>
+            <p className="text-gray-400 text-sm sm:text-base lg:text-lg">
+              {propSubtitle}
+            </p>
           </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(limit)].map((_, i) => (
-            <div key={i} className="h-48 bg-gray-800 rounded-lg animate-pulse"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="animate-pulse">
+              <div className="bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-5 h-64 sm:h-72 lg:h-80">
+                <div className="h-4 bg-gray-700 rounded mb-3"></div>
+                <div className="h-3 bg-gray-700 rounded mb-2"></div>
+                <div className="h-3 bg-gray-700 rounded mb-4 w-3/4"></div>
+                <div className="flex gap-2 mb-4">
+                  <div className="h-6 bg-gray-700 rounded w-16"></div>
+                  <div className="h-6 bg-gray-700 rounded w-12"></div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-2 bg-gray-700 rounded"></div>
+                  <div className="h-2 bg-gray-700 rounded w-2/3"></div>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
     );
   }
 
-  if (authStatus !== "authenticated") {
-    return null;
+  // Si des cours sont fournis en props, utiliser ceux-ci
+  if (courses && courses.length > 0) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <div className="text-center">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+            {propTitle}
+          </h2>
+          <p className="text-gray-400 text-sm sm:text-base lg:text-lg">
+            {propSubtitle}
+          </p>
+        </div>
+        
+        {/* Grille responsive optimisée */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
+          {courses.map((course) => (
+            <CourseCard 
+              key={course.id} 
+              course={course} 
+              context="explorer"
+            />
+          ))}
+        </div>
+      </div>
+    );
   }
 
+  // Si pas de cours fournis et pas de recommandations
   if (!recommendations || recommendations.recommendations.length === 0) {
     return (
-      <div className={`text-center py-8 ${className}`}>
-        <Lightbulb className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-300 mb-2">Aucune recommandation</h3>
-        <p className="text-gray-400">
-          Commencez par suivre quelques cours pour recevoir des recommandations personnalisées.
-        </p>
+      <div className={`space-y-6 ${className}`}>
+        <div className="text-center">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+            {propTitle}
+          </h2>
+          <p className="text-gray-400 text-sm sm:text-base lg:text-lg">
+            {propSubtitle}
+          </p>
+        </div>
+        
+        <div className="bg-gray-800/50 rounded-xl p-8 max-w-md mx-auto text-center">
+          <p className="text-gray-400 text-sm sm:text-base">
+            Aucun cours disponible pour le moment.
+          </p>
+        </div>
       </div>
     );
   }
@@ -175,86 +275,70 @@ export function CourseRecommendations({
     <div className={`space-y-6 ${className}`}>
       {showTitle && (
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-2">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 flex items-center justify-center gap-2">
             <Sparkles className="w-6 h-6 text-blue-400" />
             Recommandations pour vous
           </h2>
-          <p className="text-gray-400">
+          <p className="text-gray-400 text-sm sm:text-base lg:text-lg">
             Basé sur votre progression et vos préférences
           </p>
         </div>
       )}
 
       {/* Statistiques rapides */}
-      {recommendations.preferences && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-gray-900/60 border-gray-700">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-white">
-                {Math.round(recommendations.preferences.averageProgress)}%
-              </div>
-              <p className="text-xs text-gray-400">Progression moyenne</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-900/60 border-gray-700">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-white">
-                {Math.round(recommendations.preferences.completionRate * 100)}%
-              </div>
-              <p className="text-xs text-gray-400">Taux de complétion</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-900/60 border-gray-700">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-white">
-                {Object.keys(recommendations.preferences.platforms).length}
-              </div>
-              <p className="text-xs text-gray-400">Plateformes utilisées</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-900/60 border-gray-700">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-white">
-                {recommendations.totalFound}
-              </div>
-              <p className="text-xs text-gray-400">Cours recommandés</p>
-            </CardContent>
-          </Card>
+      {recommendations.stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-white">{recommendations.stats.totalCourses}</div>
+            <div className="text-xs sm:text-sm text-gray-400">Cours total</div>
+          </div>
+          <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-green-400">{recommendations.stats.completedCourses}</div>
+            <div className="text-xs sm:text-sm text-gray-400">Terminés</div>
+          </div>
+          <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-blue-400">{Math.round(recommendations.stats.averageScore)}%</div>
+            <div className="text-xs sm:text-sm text-gray-400">Score moyen</div>
+          </div>
+          <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+            <div className="text-lg font-bold text-purple-400">{recommendations.stats.topPlatform}</div>
+            <div className="text-xs sm:text-sm text-gray-400">Plateforme préférée</div>
+          </div>
         </div>
       )}
 
-      {/* Grille de recommandations */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Grille de recommandations responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
         {recommendations.recommendations.map((course) => (
-          <Card key={course.id} className="bg-gray-900 border border-gray-800 rounded-2xl hover:shadow-xl transition-all duration-200 group">
+          <Card key={course.id} className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl hover:shadow-xl transition-all duration-200 group">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
-                  <h3 className="font-bold text-white line-clamp-2 group-hover:text-blue-400 transition-colors">
+                  <h3 className="font-bold text-white line-clamp-2 group-hover:text-blue-400 transition-colors text-sm sm:text-base">
                     {course.title}
                   </h3>
                   <div className="flex items-center gap-2 mt-2">
                     <Badge className="bg-blue-900/40 text-blue-300 border-blue-500/30 text-xs">
                       {course.platform}
                     </Badge>
-                    {course.level && (
+                    {course.level_normalized && (
                       <Badge className="bg-gray-800 text-gray-300 text-xs">
-                        {course.level}
+                        {course.level_normalized}
                       </Badge>
                     )}
                   </div>
                 </div>
-                {course.rating && (
+                {course.rating_numeric && (
                   <div className="flex items-center gap-1 text-yellow-400">
                     <Star className="w-4 h-4 fill-current" />
-                    <span className="text-sm font-medium">{course.rating}</span>
+                    <span className="text-sm font-medium">{course.rating_numeric}</span>
                   </div>
                 )}
               </div>
             </CardHeader>
             
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-400 line-clamp-2">
+              <p className="text-xs sm:text-sm text-gray-400 line-clamp-2">
                 {course.description}
               </p>
 
@@ -282,20 +366,20 @@ export function CourseRecommendations({
               <div className="flex gap-2 pt-2">
                 <Button
                   size="sm"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm h-8 sm:h-9"
                   onClick={() => handleStartCourse(course)}
                 >
-                  <Target className="w-3 h-3 mr-1" />
+                  <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                   Commencer
                 </Button>
-                {course.url && (
+                {course.link && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-gray-600 text-gray-300 hover:bg-gray-800"
-                    onClick={() => window.open(course.url, '_blank')}
+                    className="border-gray-600 text-gray-300 hover:bg-gray-800 h-8 sm:h-9 px-2 sm:px-3"
+                    onClick={() => window.open(course.link, '_blank')}
                   >
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                 )}
               </div>
@@ -303,33 +387,6 @@ export function CourseRecommendations({
           </Card>
         ))}
       </div>
-
-      {/* Modal de détail si un cours est sélectionné */}
-      {selectedCourse && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="bg-gray-900 border-gray-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-white">{selectedCourse.title}</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedCourse(null)}
-                >
-                  ×
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ProgressTracker
-                courseId={selectedCourse.id}
-                courseTitle={selectedCourse.title}
-                courseUrl={selectedCourse.url}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 } 

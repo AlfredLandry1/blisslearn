@@ -83,7 +83,8 @@ export const StatsSection = React.memo(function StatsSection() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+        {/* Grille de statistiques responsive */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           {stats.map((stat, index) => (
             <motion.div
               key={index}
@@ -105,47 +106,16 @@ export const StatsSection = React.memo(function StatsSection() {
               <Card
                 className={`bg-gradient-to-br ${stat.bgGradient} border ${stat.borderColor} hover:border-opacity-40 transition-all duration-300 backdrop-blur-sm overflow-hidden hover:shadow-2xl`}
               >
-                <CardContent className="p-8 text-center relative">
-                  {/* Background glow effect */}
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}
-                  />
-
-                  {/* Icon container */}
-                  <motion.div
-                    className={`w-20 h-20 bg-gradient-to-r ${stat.gradient} rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:shadow-xl transition-all duration-300`}
-                    whileHover={{
-                      rotate: 5,
-                      scale: 1.1,
-                      transition: { duration: 0.3, ease: "easeOut" },
-                    }}
-                  >
-                    <stat.icon className="w-10 h-10 text-white" />
-                  </motion.div>
-
-                  {/* Number with animation */}
-                  <motion.div
-                    className={`text-4xl sm:text-5xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent mb-3`}
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    transition={{
-                      duration: 0.8,
-                      delay: index * 0.2,
-                      ease: "easeOut",
-                    }}
-                    viewport={{ once: true }}
-                  >
-                    {stat.number}
-                  </motion.div>
-
-                  {/* Label */}
-                  <div className="text-gray-300 text-lg font-medium">
-                    {stat.label}
+                <CardContent className="p-4 sm:p-6 lg:p-8 text-center">
+                  <div className={`w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 mx-auto mb-3 sm:mb-4 lg:mb-6 bg-white/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                    <stat.icon className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-white" />
                   </div>
-
-                  {/* Decorative elements */}
-                  <div className="absolute top-4 right-4 w-2 h-2 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" />
-                  <div className="absolute bottom-4 left-4 w-3 h-3 bg-white/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" />
+                  <h3 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-1 sm:mb-2 lg:mb-3">
+                    {stat.number}
+                  </h3>
+                  <p className="text-sm sm:text-base lg:text-lg text-gray-200 font-medium">
+                    {stat.label}
+                  </p>
                 </CardContent>
               </Card>
             </motion.div>

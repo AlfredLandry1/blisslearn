@@ -80,7 +80,7 @@ export const milestoneValidationSchema = Yup.object().shape({
     .required("Le résumé est requis"),
   keyConcepts: Yup.array()
     .of(Yup.string().min(3, "Chaque concept doit contenir au moins 3 caractères"))
-    .min(1, "Ajoutez au moins 1 concept clé")
+    .min(2, "Ajoutez au moins 2 concepts clés")
     .max(10, "Maximum 10 concepts clés")
     .required("Les concepts clés sont requis"),
   challenges: Yup.string()
@@ -99,6 +99,13 @@ export const milestoneValidationSchema = Yup.object().shape({
     .required("La position est requise"),
   notesAtMilestone: Yup.string()
     .max(1000, "Maximum 1000 caractères")
+});
+
+// Schéma de validation pour la vérification d'email
+export const verifyEmailSchema = Yup.object().shape({
+  email: Yup.string()
+    .email("Adresse email invalide")
+    .required("L'adresse email est requise")
 });
 
 // Types TypeScript pour les formulaires
@@ -141,6 +148,10 @@ export interface MilestoneValidationFormValues {
   notesAtMilestone: string;
 }
 
+export interface VerifyEmailFormValues {
+  email: string;
+}
+
 // Valeurs initiales pour les formulaires
 export const initialLoginValues: LoginFormValues = {
   email: "",
@@ -179,4 +190,8 @@ export const initialMilestoneValidationValues: MilestoneValidationFormValues = {
   timeSpentAtMilestone: 0,
   positionAtMilestone: "",
   notesAtMilestone: ""
+};
+
+export const initialVerifyEmailValues: VerifyEmailFormValues = {
+  email: ""
 }; 

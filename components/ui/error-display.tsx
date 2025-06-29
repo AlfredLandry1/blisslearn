@@ -20,9 +20,9 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 }) => {
   const { getError, clearError, hasError } = useUIStore();
   const error = getError(errorKey);
-  const hasErrorMessage = hasError(errorKey);
+  const hasErrorMessage = hasError ? hasError(errorKey) : Boolean(error);
 
-  if (!hasErrorMessage) return null;
+  if (!hasErrorMessage || !error) return null;
 
   const handleDismiss = () => {
     clearError(errorKey);
@@ -95,7 +95,7 @@ export const useErrorHandler = (errorKey: string) => {
     setError: (message: string) => setError(errorKey, message),
     clearError: () => clearError(errorKey),
     getError: () => getError(errorKey),
-    hasError: () => hasError(errorKey),
+    hasError: () => hasError ? hasError(errorKey) : Boolean(getError(errorKey)),
     ErrorDisplay: (props: Omit<ErrorDisplayProps, "errorKey">) => (
       <ErrorDisplay errorKey={errorKey} {...props} />
     )

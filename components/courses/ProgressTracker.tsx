@@ -122,7 +122,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [isFormDirty, setIsFormDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { setLoading: setGlobalLoading, clearLoading, addNotification } = useUIStore();
+  const { addNotification } = useUIStore();
   const loadingKey = `progress-tracker-${courseId}`;
 
   // Mettre à jour la progression locale quand initialProgress change
@@ -166,7 +166,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           // Afficher un toast informatif seulement si pas déjà affiché
           if (!hasShownNotStartedNotification) {
             addNotification({
-              id: `course-not-started-${courseId}`,
               type: "info",
               title: "Cours non commencé",
               message: data.message || "Ce cours n'est pas encore dans vos cours en cours. Aucune statistique disponible.",
@@ -181,7 +180,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         // Gérer les erreurs HTTP
         const errorData = await response.json();
         addNotification({
-          id: `milestones-error-${courseId}`,
           type: "error",
           title: "Erreur de chargement",
           message: errorData.error || "Impossible de charger les statistiques du cours",
@@ -191,7 +189,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     } catch (error) {
       console.error('Erreur chargement paliers:', error);
       addNotification({
-        id: `milestones-network-error-${courseId}`,
         type: "error",
         title: "Erreur réseau",
         message: "Impossible de communiquer avec le serveur",
@@ -226,7 +223,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     if (canValidateMilestone(percentage)) {
       // Ouvrir la modal de validation
       addNotification({
-        id: `milestone-info-${Date.now()}`,
         type: "info",
         title: "Validation de palier",
         message: `Pour valider le palier ${percentage}%, utilisez la section "Paliers de progression" ci-dessous.`,
@@ -251,20 +247,12 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   const performStatusChange = async (newStatus: string) => {
     setIsUpdating(true);
-    setGlobalLoading(loadingKey, true);
 
     try {
       const updatedProgress = {
         ...progress,
         status: newStatus,
-        lastActivityAt: new Date().toISOString(),
-        // Réinitialiser la progression si on marque comme "non commencé"
-        ...(newStatus === "not_started" && {
-          progressPercentage: 0,
-          currentPosition: ""
-        }),
-        ...(newStatus === "in_progress" && !progress.startedAt && { startedAt: new Date().toISOString() }),
-        ...(newStatus === "completed" && { completedAt: new Date().toISOString() })
+        lastActivityAt: new Date().toISOString()
       };
 
       const response = await fetch("/api/courses/progress", {
@@ -272,20 +260,19 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseId,
-          ...updatedProgress
+          status: newStatus,
+          lastActivityAt: new Date().toISOString()
         })
       });
 
       if (response.ok) {
         setProgress(updatedProgress);
         onProgressUpdate?.(updatedProgress);
-        
-        const statusLabel = getStatusLabel(newStatus);
+
         addNotification({
-          id: `progress-update-${Date.now()}`,
           type: "success",
-          title: "Progression mise à jour",
-          message: `Statut changé vers "${statusLabel}"`,
+          title: "Statut mis à jour",
+          message: `Cours marqué comme ${newStatus === "completed" ? "terminé" : newStatus === "in_progress" ? "en cours" : "en pause"}`,
           duration: 3000
         });
       } else {
@@ -293,7 +280,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       }
     } catch (error) {
       addNotification({
-        id: `progress-error-${Date.now()}`,
         type: "error",
         title: "Erreur",
         message: "Impossible de mettre à jour la progression",
@@ -301,7 +287,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       });
     } finally {
       setIsUpdating(false);
-      setGlobalLoading(loadingKey, false);
     }
   };
 
@@ -320,7 +305,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   const handleProgressChange = async (newPercentage: number) => {
     setIsUpdating(true);
-    setGlobalLoading(loadingKey, true);
 
     try {
       const updatedProgress = {
@@ -343,7 +327,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         onProgressUpdate?.(updatedProgress);
         
         addNotification({
-          id: `progress-update-${Date.now()}`,
           type: "success",
           title: "Progression mise à jour",
           message: `Progression mise à jour à ${newPercentage}%`,
@@ -354,7 +337,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       }
     } catch (error) {
       addNotification({
-        id: `progress-error-${Date.now()}`,
         type: "error",
         title: "Erreur",
         message: "Impossible de mettre à jour la progression",
@@ -362,7 +344,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       });
     } finally {
       setIsUpdating(false);
-      setGlobalLoading(loadingKey, false);
     }
   };
 
@@ -373,7 +354,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   const handleToggleFavorite = async () => {
     setIsUpdating(true);
-    setGlobalLoading(loadingKey, true);
 
     try {
       const newFavoriteState = !progress.favorite;
@@ -398,7 +378,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         onProgressUpdate?.(updatedProgress);
         
         addNotification({
-          id: `favorite-update-${Date.now()}`,
           type: "success",
           title: "Favoris mis à jour",
           message: newFavoriteState ? "Cours ajouté aux favoris" : "Cours retiré des favoris",
@@ -409,7 +388,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       }
     } catch (error) {
       addNotification({
-        id: `favorite-error-${Date.now()}`,
         type: "error",
         title: "Erreur",
         message: "Impossible de mettre à jour les favoris",
@@ -417,7 +395,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       });
     } finally {
       setIsUpdating(false);
-      setGlobalLoading(loadingKey, false);
     }
   };
 
@@ -506,7 +483,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     if (!isFormDirty) return;
 
     setIsSaving(true);
-    setGlobalLoading(loadingKey, true);
 
     try {
       // Sauvegarder la progression générale
@@ -544,7 +520,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         setIsFormDirty(false);
         
         addNotification({
-          id: `progress-saved-${Date.now()}`,
           type: "success",
           title: "Progression sauvegardée",
           message: "Vos modifications ont été sauvegardées avec succès",
@@ -555,7 +530,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       }
     } catch (error) {
       addNotification({
-        id: `progress-error-${Date.now()}`,
         type: "error",
         title: "Erreur",
         message: "Impossible de sauvegarder les modifications",
@@ -563,7 +537,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       });
     } finally {
       setIsSaving(false);
-      setGlobalLoading(loadingKey, false);
     }
   };
 

@@ -24,6 +24,8 @@ import { MilestoneValidationForm } from './MilestoneValidationForm';
 import { Milestone, CourseReport, MilestoneFormData } from '@/types/next-auth';
 import { useCourseStore } from '@/stores/courseStore';
 import { MilestoneReportSidebar } from './MilestoneReportSidebar';
+import { FinalCourseReport } from './FinalCourseReport';
+import { useUIStore } from '@/stores/uiStore';
 
 interface MilestoneProgressProps {
   courseId: number;
@@ -40,18 +42,22 @@ export function MilestoneProgress({
 }: MilestoneProgressProps) {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [reports, setReports] = useState<CourseReport[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedMilestone, setSelectedMilestone] = useState<number | null>(null);
   const [showValidationForm, setShowValidationForm] = useState(false);
   const [selectedReport, setSelectedReport] = useState<CourseReport | null>(null);
+  const [showFinalReport, setShowFinalReport] = useState(false);
 
   const { updateCourseProgress, refreshStats } = useCourseStore();
+  const { setLoading, isKeyLoading, addNotification } = useUIStore();
+  const loadingKey = `milestone-progress-${courseId}`;
+  const loading = isKeyLoading(loadingKey);
 
   useEffect(() => {
     loadMilestones();
   }, [courseId]);
 
   const loadMilestones = async () => {
+    setLoading(loadingKey, true);
     try {
       const response = await fetch(`/api/courses/milestones?courseId=${courseId}`);
       if (response.ok) {
@@ -59,13 +65,23 @@ export function MilestoneProgress({
         setMilestones(data.milestones);
         setReports(data.reports);
       } else {
-        toast.error('Erreur lors du chargement des paliers');
+        addNotification({
+          type: "error",
+          title: "Erreur",
+          message: "Erreur lors du chargement des paliers",
+          duration: 5000
+        });
       }
     } catch (error) {
       console.error('Erreur chargement paliers:', error);
-      toast.error('Erreur lors du chargement des paliers');
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: "Erreur lors du chargement des paliers",
+        duration: 5000
+      });
     } finally {
-      setLoading(false);
+      setLoading(loadingKey, false);
     }
   };
 
@@ -137,6 +153,35 @@ export function MilestoneProgress({
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const isCourseCompleted = () => {
+    return milestones.every(m => m.isCompleted);
+  };
+
+  const hasFinalReport = () => {
+    return reports.some(r => r.type === 'final_course_summary');
+  };
+
+  const generateFinalReport = async () => {
+    try {
+      const response = await fetch('/api/courses/milestones/generate-final-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId })
+      });
+
+      if (response.ok) {
+        toast.success('Rapport final généré avec succès !');
+        await loadMilestones(); // Recharger pour avoir le nouveau rapport
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Erreur lors de la génération du rapport');
+      }
+    } catch (error) {
+      console.error('Erreur génération rapport final:', error);
+      toast.error('Erreur lors de la génération du rapport final');
+    }
   };
 
   if (loading) {
@@ -332,6 +377,33 @@ export function MilestoneProgress({
         </CardContent>
       </Card>
 
+      {/* Bouton pour le rapport final */}
+      {isCourseCompleted() && (
+        <Card className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800">
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              <div className="flex items-center justify-center gap-2 text-green-700 dark:text-green-400">
+                <CheckCircle className="h-6 w-6" />
+                <h3 className="text-lg font-semibold">Félicitations ! Cours terminé</h3>
+              </div>
+              <p className="text-sm text-green-600 dark:text-green-500">
+                {hasFinalReport() 
+                  ? "Vous avez validé tous les paliers. Votre rapport final de fin de cours est prêt !"
+                  : "Vous avez validé tous les paliers. Générez votre rapport final de fin de cours !"
+                }
+              </p>
+              <Button
+                onClick={hasFinalReport() ? () => setShowFinalReport(true) : generateFinalReport}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {hasFinalReport() ? "Voir mon rapport final" : "Générer mon rapport final"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Sidebar de validation de palier */}
       <MilestoneValidationForm
         percentage={selectedMilestone || 0}
@@ -352,6 +424,13 @@ export function MilestoneProgress({
         isOpen={selectedReport !== null}
         onClose={() => setSelectedReport(null)}
         report = {selectedReport as CourseReport}
+      />
+
+      {/* Modal du rapport final */}
+      <FinalCourseReport
+        courseId={courseId}
+        isOpen={showFinalReport}
+        onClose={() => setShowFinalReport(false)}
       />
     </>
   );

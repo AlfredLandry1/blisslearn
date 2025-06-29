@@ -19,26 +19,26 @@ export function DashboardCard({
   footer 
 }: DashboardCardProps) {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-white text-lg font-bold truncate">
+    <Card className={`overflow-hidden min-w-0 ${className}`}>
+      <CardHeader className="overflow-hidden min-w-0">
+        <div className="flex items-center justify-between min-w-0 w-full">
+          <CardTitle className="text-white text-lg font-bold truncate flex-1 min-w-0 overflow-hidden">
             {title}
           </CardTitle>
           {headerAction && (
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 ml-2 min-w-0">
               {headerAction}
             </div>
           )}
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 overflow-hidden min-w-0">
         {children}
       </CardContent>
       
       {footer && (
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 -mb-2 overflow-hidden min-w-0">
           {footer}
         </div>
       )}

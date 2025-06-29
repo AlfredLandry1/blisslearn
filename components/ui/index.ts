@@ -7,6 +7,7 @@ export * from "./CourseActions";
 export * from "./CourseInfo";
 export * from "./ProgressInfo";
 export * from "./sheet";
+export * from "./responsive-grid";
 
 // Nouveaux composants pour les paliers
 export { MilestoneProgress } from './MilestoneProgress';

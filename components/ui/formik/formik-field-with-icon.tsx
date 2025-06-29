@@ -95,7 +95,6 @@ export function FormikFieldWithIcon({
         component="div"
         id={name + "-error"}
         className="text-sm text-red-500"
-        role="alert"
       />
     </div>
   );

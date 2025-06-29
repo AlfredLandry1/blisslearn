@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,32 +24,60 @@ import {
   Camera,
   Sparkles,
 } from "lucide-react";
+import { useUIStore } from "@/stores/uiStore";
+import { useFormManager } from "@/components/ui/form-manager";
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState("profile");
-  const [isLoading, setIsLoading] = useState(false);
 
-  // État du formulaire basé sur le modèle User de Prisma
-  const [formData, setFormData] = useState({
-    name: session?.user?.name || "",
-    email: session?.user?.email || "",
-    image: session?.user?.image || "",
-  });
+  const { addNotification, setLoading, isKeyLoading } = useUIStore();
+  const { form, setForm, updateField, submitForm } = useFormManager("settings");
+  const loadingKey = "settings-save";
+  const loading = isKeyLoading(loadingKey);
+
+  // Initialiser le formulaire avec les données de session
+  useEffect(() => {
+    if (session?.user) {
+      setForm({
+        name: session.user.name || "",
+        email: session.user.email || "",
+        image: session.user.image || "",
+      });
+    }
+  }, [session?.user, setForm]);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    updateField(field, value);
   };
 
   const handleSaveProfile = async () => {
-    setIsLoading(true);
-    // Ici vous ajouteriez la logique pour sauvegarder les données
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    await submitForm(
+      async (data: any) => {
+        // Ici vous ajouteriez la logique pour sauvegarder les données
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return { success: true };
+      },
+      {
+        loadingKey,
+        onSuccess: () => {
+          addNotification({
+            type: "success",
+            title: "Profil mis à jour",
+            message: "Vos informations ont été sauvegardées avec succès",
+            duration: 3000
+          });
+        },
+        onError: (error: any) => {
+          addNotification({
+            type: "error",
+            title: "Erreur",
+            message: "Impossible de sauvegarder les modifications",
+            duration: 5000
+          });
+        }
+      }
+    );
   };
 
   const tabs = [
@@ -112,9 +140,9 @@ export default function SettingsPage() {
                   <div className="flex items-center space-x-4">
                     <div className="relative">
                       <Avatar className="w-20 h-20">
-                        <AvatarImage src={formData.image || ""} />
+                        <AvatarImage src={form.image || ""} />
                         <AvatarFallback className="bg-gradient-to-r from-blue-500 to-blue-400 text-white text-xl">
-                          {formData.name?.charAt(0) || "U"}
+                          {form.name?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
                       <Button
@@ -145,7 +173,7 @@ export default function SettingsPage() {
                       </Label>
                       <Input
                         id="name"
-                        value={formData.name}
+                        value={form.name}
                         onChange={(e) =>
                           handleInputChange("name", e.target.value)
                         }
@@ -160,7 +188,7 @@ export default function SettingsPage() {
                       <Input
                         id="email"
                         type="email"
-                        value={formData.email}
+                        value={form.email}
                         onChange={(e) =>
                           handleInputChange("email", e.target.value)
                         }
@@ -176,7 +204,7 @@ export default function SettingsPage() {
                     </Label>
                     <Input
                       id="image"
-                      value={formData.image}
+                      value={form.image}
                       onChange={(e) =>
                         handleInputChange("image", e.target.value)
                       }
@@ -210,11 +238,11 @@ export default function SettingsPage() {
 
                   <Button
                     onClick={handleSaveProfile}
-                    disabled={isLoading}
+                    disabled={loading}
                     className="truncate bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                   >
                     <Save className="w-4 h-4 mr-2" />
-                    {isLoading
+                    {loading
                       ? "Sauvegarde..."
                       : "Sauvegarder les modifications"}
                   </Button>

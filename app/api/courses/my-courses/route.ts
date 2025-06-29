@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
             }
           : {},
         platform && platform !== 'all' ? { course: { platform: { equals: platform, mode: 'insensitive' as const } } } : {},
-        level && level !== 'all' ? { course: { level: { equals: level, mode: 'insensitive' as const } } } : {},
+        level && level !== 'all' ? { course: { level_normalized: { equals: level, mode: 'insensitive' as const } } } : {},
         language && language !== 'all' ? { course: { language: { equals: language, mode: 'insensitive' as const } } } : {},
         favorite === 'true' ? { favorite: true } : {},
         favorite === 'false' ? { favorite: false } : {},
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Validation du tri
-    const validSortFields = ['updatedAt', 'startedAt', 'progressPercentage', 'rating'];
+    const validSortFields = ['updatedAt', 'startedAt', 'progressPercentage', 'rating_numeric'];
     const validSortOrders = ['asc', 'desc'];
     const finalSortBy = validSortFields.includes(sortBy) ? sortBy : 'updatedAt';
     const finalSortOrder = validSortOrders.includes(sortOrder) ? sortOrder : 'desc';
@@ -77,15 +77,15 @@ export async function GET(request: NextRequest) {
               description: true,
               platform: true,
               provider: true,
-              level: true,
+              level_normalized: true,
               duration: true,
-              rating: true,
-              price: true,
+              rating_numeric: true,
+              price_numeric: true,
               language: true,
               format: true,
-              url: true,
+              link: true,
               skills: true,
-              certificate_type: true,
+              course_type: true,
               start_date: true,
             }
           }
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       favorite: progress.favorite,
       progressPercentage: Number(progress.progressPercentage) || 0,
       platform: progress.course.platform,
-      level: progress.course.level,
+      level: progress.course.level_normalized,
       language: progress.course.language,
       notes: progress.notes,
       timeSpent: progress.timeSpent,
@@ -114,12 +114,12 @@ export async function GET(request: NextRequest) {
       description: progress.course.description,
       provider: progress.course.provider,
       duration: progress.course.duration,
-      rating: progress.course.rating,
-      price: progress.course.price,
+      rating: progress.course.rating_numeric,
+      price: progress.course.price_numeric,
       format: progress.course.format,
-      url: progress.course.url,
+      link: progress.course.link,
       skills: progress.course.skills,
-      certificate_type: progress.course.certificate_type,
+      course_type: progress.course.course_type,
       start_date: progress.course.start_date,
     }));
 

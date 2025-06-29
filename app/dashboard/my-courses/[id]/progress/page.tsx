@@ -37,22 +37,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { PriceConverter } from "@/components/ui/PriceConverter";
 
 interface Course {
   id: number;
   title: string;
   description: string;
   platform: string;
-  provider: string;
-  level: string;
-  duration: string;
-  rating: number;
-  price: string;
+  institution: string;
+  level_normalized: string;
+  duration_hours: number;
+  rating_numeric: number;
+  price_numeric: number;
   language: string;
   format: string;
-  url: string;
+  link: string;
   skills: string;
-  certificate_type: string;
+  course_type: string;
   start_date: string;
 }
 
@@ -71,64 +72,63 @@ interface ProgressData {
   favorite: boolean;
 }
 
-export default function CourseProgressPage() {
+export default function CourseProgressPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const params = useParams();
-  const courseId = params?.id as string;
-
   const [course, setCourse] = useState<Course | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showStopDialog, setShowStopDialog] = useState(false);
   const [isStoppingCourse, setIsStoppingCourse] = useState(false);
 
   const {
-    setLoading: setGlobalLoading,
-    clearLoading,
     addNotification,
+    setLoading,
+    isKeyLoading,
   } = useUIStore();
   
   const { updateCourseProgress, refreshStats } = useCourseStore();
-  const loadingKey = `course-progress-${courseId}`;
+
+  const loadingKey = `course-progress-${params.id}`;
+  const loading = isKeyLoading(loadingKey);
 
   useEffect(() => {
-    const fetchCourseData = async () => {
-      setGlobalLoading(loadingKey, true);
-      try {
-        // Récupérer les détails du cours
-        const courseResponse = await fetch(`/api/courses/${courseId}`);
-        if (!courseResponse.ok) {
-          throw new Error("Cours non trouvé");
-        }
-        const courseData = await courseResponse.json();
-        setCourse(courseData);
-
-        // Récupérer la progression
-        const progressResponse = await fetch(`/api/courses/progress?courseId=${courseId}`);
-        if (progressResponse.ok) {
-          const progressData = await progressResponse.json();
-          setProgress(progressData);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur lors du chargement");
-        addNotification({
-          id: `course-error-${Date.now()}`,
-          type: "error",
-          title: "Erreur",
-          message: "Impossible de charger les détails du cours",
-          duration: 5000
-        });
-      } finally {
-        setGlobalLoading(loadingKey, false);
-        setLoading(false);
-      }
-    };
-
-    if (courseId) {
+    if (params.id) {
       fetchCourseData();
     }
-  }, [courseId, setGlobalLoading, clearLoading, addNotification, loadingKey]);
+  }, [params.id]);
+
+  const fetchCourseData = async () => {
+    setLoading(loadingKey, true);
+    try {
+      const [courseResponse, progressResponse] = await Promise.all([
+        fetch(`/api/courses/${params.id}`),
+        fetch(`/api/courses/progress?courseId=${params.id}`)
+      ]);
+
+      if (courseResponse.ok && progressResponse.ok) {
+        const [courseData, progressData] = await Promise.all([
+          courseResponse.json(),
+          progressResponse.json()
+        ]);
+        
+        setCourse(courseData);
+        setProgress(progressData);
+      } else {
+        throw new Error("Erreur lors du chargement des données");
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement:", error);
+      setError("Impossible de charger les données du cours");
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: "Impossible de charger les données du cours",
+        duration: 5000
+      });
+    } finally {
+      setLoading(loadingKey, false);
+    }
+  };
 
   // Gestionnaire d'événement pour arrêter le cours
   useEffect(() => {
@@ -145,14 +145,13 @@ export default function CourseProgressPage() {
   const handleStopCourse = async () => {
     setIsStoppingCourse(true);
     try {
-      const response = await fetch(`/api/courses/progress?courseId=${courseId}`, {
+      const response = await fetch(`/api/courses/progress?courseId=${params.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" }
       });
 
       if (response.ok) {
         addNotification({
-          id: `course-stopped-${Date.now()}`,
           type: "success",
           title: "Cours retiré",
           message: `"${course?.title}" a été retiré de vos cours en cours.`,
@@ -166,7 +165,6 @@ export default function CourseProgressPage() {
       }
     } catch (error) {
       addNotification({
-        id: `course-error-${Date.now()}`,
         type: "error",
         title: "Erreur",
         message: "Impossible de retirer le cours",
@@ -189,12 +187,12 @@ export default function CourseProgressPage() {
     // Mettre à jour le store global
     if (course) {
       updateCourseProgress(course.id, {
-        status: updatedProgress.status || progress?.status || "not_started",
-        progressPercentage: updatedProgress.progressPercentage || progress?.progressPercentage || 0,
-        favorite: updatedProgress.favorite !== undefined ? updatedProgress.favorite : progress?.favorite || false,
-        notes: updatedProgress.notes !== undefined ? updatedProgress.notes : progress?.notes || null,
-        timeSpent: updatedProgress.timeSpent !== undefined ? updatedProgress.timeSpent : progress?.timeSpent || 0,
-        currentPosition: updatedProgress.currentPosition !== undefined ? updatedProgress.currentPosition : progress?.currentPosition || null,
+        status: updatedProgress.status ?? progress?.status ?? "not_started",
+        progressPercentage: updatedProgress.progressPercentage ?? progress?.progressPercentage ?? 0,
+        favorite: updatedProgress.favorite ?? progress?.favorite ?? false,
+        notes: updatedProgress.notes ?? progress?.notes ?? undefined,
+        timeSpent: updatedProgress.timeSpent ?? progress?.timeSpent ?? undefined,
+        currentPosition: updatedProgress.currentPosition ?? progress?.currentPosition ?? undefined,
       });
     }
   };
@@ -266,8 +264,8 @@ export default function CourseProgressPage() {
             <h2 className="text-xl text-blue-400 mb-2">{course.title}</h2>
             <div className="flex items-center gap-4 text-sm text-gray-400">
               <span>{course.platform}</span>
-              {course.provider && <span>• {course.provider}</span>}
-              {course.level && <span>• {course.level}</span>}
+              {course.institution && <span>• {course.institution}</span>}
+              {course.level_normalized && <span>• {course.level_normalized}</span>}
             </div>
           </div>
 
@@ -278,7 +276,7 @@ export default function CourseProgressPage() {
               <ProgressTracker
                 courseId={course.id}
                 courseTitle={course.title}
-                courseUrl={course.url}
+                courseUrl={course.link}
                 initialProgress={progress || undefined}
                 onProgressUpdate={handleProgressUpdate}
               />
@@ -297,9 +295,9 @@ export default function CourseProgressPage() {
                   <CardTitle className="text-white">Actions rapides</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {course.url && (
+                  {course.link && (
                     <Button
-                      onClick={() => window.open(course.url, "_blank")}
+                      onClick={() => window.open(course.link, "_blank")}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
@@ -354,12 +352,12 @@ export default function CourseProgressPage() {
                 <SectionHeader>Informations</SectionHeader>
                 <div className="px-6 pb-6">
                   <CourseInfo
-                    duration={course.duration}
-                    rating={course.rating}
+                    duration={String(course.duration_hours)}
+                    rating={course.rating_numeric}
                     format={course.format}
-                    certificate_type={course.certificate_type}
+                    certificate_type={course.course_type}
                     start_date={course.start_date}
-                    price={course.price}
+                    price={course.price_numeric}
                   />
                 </div>
               </div>

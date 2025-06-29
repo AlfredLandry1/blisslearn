@@ -37,9 +37,9 @@ export async function POST(req: Request) {
       select: {
         name: true,
         email: true,
-        onboarding: {
+        onboardingCompleted: true,
+        onboardingResponses: {
           select: {
-            isCompleted: true,
             skillLevel: true,
             domainsOfInterest: true,
             learningObjectives: true,
@@ -50,33 +50,34 @@ export async function POST(req: Request) {
       },
     });
 
+    const onboardingData = user?.onboardingResponses?.[0];
     const userPromptContext = `
 **Contexte utilisateur :**
 - Prénom : ${user?.name || ""}
 - Email : ${user?.email || ""}
-- Onboarding complété : ${user?.onboarding?.isCompleted ? "oui" : "non"}
-- Niveau : ${user?.onboarding?.skillLevel || ""}
-- Domaines d'intérêt : ${user?.onboarding?.domainsOfInterest || ""}
-- Objectifs : ${user?.onboarding?.learningObjectives || ""}
-- Langue préférée : ${user?.onboarding?.courseLanguage || "français"}
-- Plateformes préférées : ${user?.onboarding?.preferredPlatforms || ""}
+- Onboarding complété : ${user?.onboardingCompleted ? "oui" : "non"}
+- Niveau : ${onboardingData?.skillLevel || ""}
+- Domaines d'intérêt : ${onboardingData?.domainsOfInterest || ""}
+- Objectifs : ${onboardingData?.learningObjectives || ""}
+- Langue préférée : ${onboardingData?.courseLanguage || "français"}
+- Plateformes préférées : ${onboardingData?.preferredPlatforms || ""}
 `;
 
     const systemPrompt = `
-Tu es BlissLearn, l’assistant IA officiel de la plateforme BlissLearn.${userPromptContext}
+Tu es BlissLearn, l'assistant IA officiel de la plateforme BlissLearn.${userPromptContext}
 
 **Règles de réponse :**
 - Toujours répondre en français, de façon professionnelle, bienveillante et concise.
-- Ta mission principale est d’aider l’utilisateur à naviguer sur BlissLearn, à comprendre les fonctionnalités, à résoudre les problèmes courants, à s’orienter dans les cours, certifications, notifications, etc.
+- Ta mission principale est d'aider l'utilisateur à naviguer sur BlissLearn, à comprendre les fonctionnalités, à résoudre les problèmes courants, à s'orienter dans les cours, certifications, notifications, etc.
 - Si la question concerne un problème technique, propose une solution simple ou oriente vers le support.
 - Si la question sort du contexte BlissLearn, réponds poliment que tu es limité à la plateforme.
 - Si tu ne sais pas, dis-le honnêtement et propose de contacter le support.
-- Ne donne jamais d’informations confidentielles ou personnelles non autorisées.
-- Si l’utilisateur demande un résumé, fais une liste à puces.
-- Si l’utilisateur demande un pas-à-pas, fais une liste numérotée.
-- Ne propose jamais de fonctionnalités qui n’existent pas sur BlissLearn.
-- Si l’utilisateur demande du code, ne donne que ce qui est pertinent pour BlissLearn.
-- Si l’utilisateur n’a pas terminé son onboarding, propose-lui de le compléter.
+- Ne donne jamais d'informations confidentielles ou personnelles non autorisées.
+- Si l'utilisateur demande un résumé, fais une liste à puces.
+- Si l'utilisateur demande un pas-à-pas, fais une liste numérotée.
+- Ne propose jamais de fonctionnalités qui n'existent pas sur BlissLearn.
+- Si l'utilisateur demande du code, ne donne que ce qui est pertinent pour BlissLearn.
+- Si l'utilisateur n'a pas terminé son onboarding, propose-lui de le compléter.
 
 **Format de réponse :**
 - Toujours répondre avec un objet JSON valide de la forme :

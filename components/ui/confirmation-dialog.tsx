@@ -27,16 +27,12 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  const { hideConfirmation } = useUIStore();
-
   const handleConfirm = () => {
     onConfirm();
-    hideConfirmation(id);
   };
 
   const handleCancel = () => {
     if (onCancel) onCancel();
-    hideConfirmation(id);
   };
 
   const getIcon = () => {
@@ -129,22 +125,9 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 };
 
 export const ConfirmationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { confirmations } = useUIStore();
-
   return (
     <>
       {children}
-      <AnimatePresence>
-        {Object.entries(confirmations).map(([id, confirmation]) => (
-          <ConfirmationDialog
-            key={id}
-            id={id}
-            message={confirmation.message}
-            onConfirm={confirmation.onConfirm}
-            onCancel={confirmation.onCancel}
-          />
-        ))}
-      </AnimatePresence>
     </>
   );
 }; 

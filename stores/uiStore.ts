@@ -1,160 +1,312 @@
-import { create } from 'zustand';
+import { create } from "zustand";
+import { notificationService, Notification as PersistentNotification } from "@/lib/notificationService";
 
-export interface Notification {
+interface TempNotification {
   id: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  message: string;
+  type: "success" | "error" | "info" | "warning";
   title?: string;
-  duration?: number;
-}
-
-export interface ModalState {
-  [key: string]: boolean;
-  // Exemples : loginModal, settingsModal, onboardingModal, etc.
-}
-
-export interface ConfirmationState {
   message: string;
-  onConfirm: () => void;
-  onCancel?: () => void;
+  duration?: number;
+  actionUrl?: string;
+  actionText?: string;
+}
+
+interface ModalState {
+  [key: string]: boolean;
+}
+
+interface LoadingState {
+  [key: string]: boolean;
+}
+
+interface FormDataState {
+  [key: string]: any;
+}
+
+interface ErrorState {
+  [key: string]: string;
 }
 
 interface UIState {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 
-  notifications: Notification[];
-  addNotification: (notif: Notification) => void;
-  removeNotification: (id: string) => void;
-  clearNotifications: () => void;
-  setNotifications: (notifs: Notification[]) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  removeNotificationById: (id: string) => void;
-
-  modals: ModalState;
-  openModal: (modal: string) => void;
-  closeModal: (modal: string) => void;
-  closeAllModals: () => void;
-
-  selectedNotificationId: string | null;
-  setSelectedNotificationId: (id: string | null) => void;
-
-  currentPage: number;
-  setCurrentPage: (page: number) => void;
-  pageSize: number;
-  setPageSize: (size: number) => void;
-
-  loadingStates: Record<string, boolean>;
+  // Notifications temporaires (pour l'affichage immédiat)
+  notifications: TempNotification[];
+  
+  // Notifications persistantes
+  persistentNotifications: PersistentNotification[];
+  unreadCount: number;
+  globalLoading: boolean;
+  
+  // Loading states
+  loadingStates: LoadingState;
   setLoading: (key: string, loading: boolean) => void;
   clearLoading: (key: string) => void;
-  clearAllLoading: () => void;
-  isLoading: (key: string) => boolean;
-
-  errors: Record<string, string>;
-  setError: (key: string, error: string) => void;
+  isKeyLoading: (key: string) => boolean;
+  
+  // Form data management
+  formData: FormDataState;
+  setFormData: (key: string, data: any) => void;
+  updateFormData: (key: string, field: string, value: any) => void;
+  clearFormData: (key: string) => void;
+  getFormData: (key: string) => any;
+  
+  // Error management
+  errors: ErrorState;
+  setError: (key: string, message: string) => void;
   clearError: (key: string) => void;
-  clearAllErrors: () => void;
-  hasError: (key: string) => boolean;
   getError: (key: string) => string | null;
+  hasError: (key: string) => boolean;
+  
+  // Actions pour les notifications temporaires
+  addNotification: (notification: Omit<TempNotification, "id">) => void;
+  removeNotification: (id: string) => void;
+  clearNotifications: () => void;
+  
+  // Actions pour les notifications persistantes
+  loadNotifications: (page?: number, limit?: number) => Promise<void>;
+  createPersistentNotification: (notification: Omit<PersistentNotification, 'id' | 'read' | 'readAt' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  deleteAllNotifications: (readOnly?: boolean) => Promise<void>;
+  
+  // Méthodes utilitaires pour les notifications persistantes
+  showSuccess: (message: string, title?: string) => Promise<void>;
+  showError: (message: string, title?: string) => Promise<void>;
+  showInfo: (message: string, title?: string) => Promise<void>;
+  showWarning: (message: string, title?: string) => Promise<void>;
 
-  formData: Record<string, any>;
-  setFormData: (formKey: string, data: any) => void;
-  updateFormData: (formKey: string, field: string, value: any) => void;
-  clearFormData: (formKey: string) => void;
-  getFormData: (formKey: string) => any;
-
-  confirmations: Record<string, ConfirmationState>;
-  showConfirmation: (key: string, confirmation: ConfirmationState) => void;
-  hideConfirmation: (key: string) => void;
-  clearAllConfirmations: () => void;
+  // Modals
+  modals: ModalState;
+  openModal: (key: string) => void;
+  closeModal: (key: string) => void;
+  isModalOpen: (key: string) => boolean;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
-  sidebarOpen: false,
+  // État initial
+  sidebarOpen: true,
+  notifications: [],
+  persistentNotifications: [],
+  unreadCount: 0,
+  globalLoading: false,
+  loadingStates: {},
+  formData: {},
+  errors: {},
+
+  // Sidebar
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  notifications: [],
-  addNotification: (notif) => set((state) => ({ notifications: [...state.notifications, notif] })),
-  removeNotification: (id) => set((state) => ({ notifications: state.notifications.filter(n => n.id !== id) })),
-  clearNotifications: () => set({ notifications: [] }),
-  setNotifications: (notifs) => set({ notifications: notifs }),
-  markAsRead: (id) => set((state) => ({
-    notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
-  })),
-  markAllAsRead: () => set((state) => ({
-    notifications: state.notifications.map(n => ({ ...n, read: true }))
-  })),
-  removeNotificationById: (id) => set((state) => ({
-    notifications: state.notifications.filter(n => n.id !== id)
-  })),
-
-  modals: {},
-  openModal: (modal) => set((state) => ({ modals: { ...state.modals, [modal]: true } })),
-  closeModal: (modal) => set((state) => ({ modals: { ...state.modals, [modal]: false } })),
-  closeAllModals: () => set({ modals: {} }),
-
-  selectedNotificationId: null,
-  setSelectedNotificationId: (id) => set({ selectedNotificationId: id }),
-
-  currentPage: 1,
-  setCurrentPage: (page) => set({ currentPage: page }),
-  pageSize: 6,
-  setPageSize: (size) => set({ pageSize: size }),
-
-  loadingStates: {},
-  setLoading: (key, loading) => set((state) => ({
+  // Loading states
+  setLoading: (key: string, loading: boolean) => set((state) => ({
     loadingStates: { ...state.loadingStates, [key]: loading }
   })),
-  clearLoading: (key) => set((state) => {
+  
+  clearLoading: (key: string) => set((state) => {
     const newLoadingStates = { ...state.loadingStates };
     delete newLoadingStates[key];
     return { loadingStates: newLoadingStates };
   }),
-  clearAllLoading: () => set({ loadingStates: {} }),
-  isLoading: (key) => get().loadingStates[key] || false,
+  
+  isKeyLoading: (key: string) => get().loadingStates[key] || false,
 
-  errors: {},
-  setError: (key, error) => set((state) => ({
-    errors: { ...state.errors, [key]: error }
+  // Form data management
+  setFormData: (key: string, data: any) => set((state) => ({
+    formData: { ...state.formData, [key]: data }
   })),
-  clearError: (key) => set((state) => {
+  
+  updateFormData: (key: string, field: string, value: any) => set((state) => ({
+    formData: { 
+      ...state.formData, 
+      [key]: { ...state.formData[key], [field]: value }
+    }
+  })),
+  
+  clearFormData: (key: string) => set((state) => {
+    const newFormData = { ...state.formData };
+    delete newFormData[key];
+    return { formData: newFormData };
+  }),
+  
+  getFormData: (key: string) => get().formData[key] || {},
+
+  // Error management
+  setError: (key: string, message: string) => set((state) => ({
+    errors: { ...state.errors, [key]: message }
+  })),
+  
+  clearError: (key: string) => set((state) => {
     const newErrors = { ...state.errors };
     delete newErrors[key];
     return { errors: newErrors };
   }),
-  clearAllErrors: () => set({ errors: {} }),
-  hasError: (key) => !!get().errors[key],
-  getError: (key) => get().errors[key] || null,
+  
+  getError: (key: string) => get().errors[key] || null,
 
-  formData: {},
-  setFormData: (formKey, data) => set((state) => ({
-    formData: { ...state.formData, [formKey]: data }
-  })),
-  updateFormData: (formKey, field, value) => set((state) => ({
-    formData: {
-      ...state.formData,
-      [formKey]: {
-        ...state.formData[formKey],
-        [field]: value
-      }
+  hasError: (key: string) => Boolean(get().errors[key]),
+
+  // Actions pour les notifications temporaires
+  addNotification: (notification) => {
+    const id = `temp-${Date.now()}-${Math.random()}`;
+    const newNotification = { ...notification, id };
+    
+    set((state) => ({
+      notifications: [...state.notifications, newNotification],
+    }));
+
+    // Supprimer automatiquement après la durée spécifiée
+    if (notification.duration !== 0) {
+      setTimeout(() => {
+        get().removeNotification(id);
+      }, notification.duration || 5000);
     }
-  })),
-  clearFormData: (formKey) => set((state) => {
-    const newFormData = { ...state.formData };
-    delete newFormData[formKey];
-    return { formData: newFormData };
-  }),
-  getFormData: (formKey) => get().formData[formKey] || {},
+  },
 
-  confirmations: {},
-  showConfirmation: (key, confirmation) => set((state) => ({
-    confirmations: { ...state.confirmations, [key]: confirmation }
-  })),
-  hideConfirmation: (key) => set((state) => {
-    const newConfirmations = { ...state.confirmations };
-    delete newConfirmations[key];
-    return { confirmations: newConfirmations };
-  }),
-  clearAllConfirmations: () => set({ confirmations: {} }),
+  removeNotification: (id) => {
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== id),
+    }));
+  },
+
+  clearNotifications: () => {
+    set({ notifications: [] });
+  },
+
+  // Actions pour les notifications persistantes
+  loadNotifications: async (page = 1, limit = 20) => {
+    try {
+      set({ globalLoading: true });
+      const response = await notificationService.getNotifications(page, limit);
+      
+      set({
+        persistentNotifications: response.notifications,
+        unreadCount: response.notifications.filter(n => !n.read).length,
+        globalLoading: false
+      });
+    } catch (error) {
+      console.error("Erreur lors du chargement des notifications:", error);
+      set({ globalLoading: false });
+    }
+  },
+
+  createPersistentNotification: async (notification) => {
+    try {
+      const newNotification = await notificationService.createNotification(notification);
+      
+      set((state) => ({
+        persistentNotifications: [newNotification, ...state.persistentNotifications],
+        unreadCount: state.unreadCount + 1
+      }));
+    } catch (error) {
+      console.error("Erreur lors de la création de la notification:", error);
+    }
+  },
+
+  markNotificationAsRead: async (id) => {
+    try {
+      const updatedNotification = await notificationService.markAsRead(id);
+      
+      set((state) => ({
+        persistentNotifications: state.persistentNotifications.map(n => 
+          n.id === id ? updatedNotification : n
+        ),
+        unreadCount: Math.max(0, state.unreadCount - 1)
+      }));
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la notification:", error);
+    }
+  },
+
+  deleteNotification: async (id) => {
+    try {
+      await notificationService.deleteNotification(id);
+      
+      set((state) => {
+        const notification = state.persistentNotifications.find(n => n.id === id);
+        return {
+          persistentNotifications: state.persistentNotifications.filter(n => n.id !== id),
+          unreadCount: notification && !notification.read 
+            ? Math.max(0, state.unreadCount - 1) 
+            : state.unreadCount
+        };
+      });
+    } catch (error) {
+      console.error("Erreur lors de la suppression de la notification:", error);
+    }
+  },
+
+  deleteAllNotifications: async (readOnly = false) => {
+    try {
+      await notificationService.deleteAllNotifications(readOnly);
+      
+      if (readOnly) {
+        set((state) => ({
+          persistentNotifications: state.persistentNotifications.filter(n => !n.read)
+        }));
+      } else {
+        set({
+          persistentNotifications: [],
+          unreadCount: 0
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression des notifications:", error);
+    }
+  },
+
+  // Méthodes utilitaires
+  showSuccess: async (message: string, title?: string) => {
+    try {
+      await get().createPersistentNotification({
+        message,
+        type: 'success',
+        title
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'affichage de la notification de succès:", error);
+    }
+  },
+
+  showError: async (message: string, title?: string) => {
+    try {
+      await get().createPersistentNotification({
+        message,
+        type: 'error',
+        title
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'affichage de la notification d'erreur:", error);
+    }
+  },
+
+  showInfo: async (message: string, title?: string) => {
+    try {
+      await get().createPersistentNotification({
+        message,
+        type: 'info',
+        title
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'affichage de la notification d'information:", error);
+    }
+  },
+
+  showWarning: async (message: string, title?: string) => {
+    try {
+      await get().createPersistentNotification({
+        message,
+        type: 'warning',
+        title
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'affichage de la notification d'avertissement:", error);
+    }
+  },
+
+  // Modals
+  modals: {},
+  openModal: (key) => set((state) => ({ modals: { ...state.modals, [key]: true } })),
+  closeModal: (key) => set((state) => ({ modals: { ...state.modals, [key]: false } })),
+  isModalOpen: (key: string) => get().modals[key] || false,
 })); 

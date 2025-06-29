@@ -64,12 +64,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        <ConfirmationProvider>
-          <AuthSyncListener />
-          {children}
-          <NotificationsListener />
-          <Toaster />
-        </ConfirmationProvider>
+        <AuthSyncListener />
+        {children}
+        <NotificationsListener />
+        <Toaster />
       </ThemeProvider>
     </SessionProvider>
   );

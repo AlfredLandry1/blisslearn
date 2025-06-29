@@ -16,23 +16,28 @@ interface PaginationProps {
 
 const variantClasses = {
   default: {
-    button: "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400",
+    button:
+      "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400",
     active: "bg-blue-600 border-blue-600 text-white hover:bg-blue-700",
     disabled: "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed",
-    info: "text-gray-600"
+    info: "text-gray-600",
   },
   minimal: {
-    button: "bg-transparent border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300",
+    button:
+      "bg-transparent border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300",
     active: "bg-gray-900 border-gray-900 text-white hover:bg-gray-800",
     disabled: "bg-transparent border-gray-100 text-gray-300 cursor-not-allowed",
-    info: "text-gray-500"
+    info: "text-gray-500",
   },
   bliss: {
-    button: "bg-gray-800/60 border border-gray-700 text-gray-300 hover:bg-gray-700/80 hover:border-gray-600 hover:text-white backdrop-blur-sm",
-    active: "bg-blue-600/80 border-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-600/25",
-    disabled: "bg-gray-800/30 border-gray-700/50 text-gray-500 cursor-not-allowed",
-    info: "text-gray-400"
-  }
+    button:
+      "bg-gray-800/60 border border-gray-700 text-gray-300 hover:bg-gray-700/80 hover:border-gray-600 hover:text-white backdrop-blur-sm",
+    active:
+      "bg-blue-600/80 border-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-600/25",
+    disabled:
+      "bg-gray-800/30 border-gray-700/50 text-gray-500 cursor-not-allowed",
+    info: "text-gray-400",
+  },
 };
 
 export function Pagination({
@@ -41,7 +46,7 @@ export function Pagination({
   onPageChange,
   className,
   showInfo = true,
-  variant = "bliss"
+  variant = "bliss",
 }: PaginationProps) {
   if (totalPages <= 1) return null;
 
@@ -77,17 +82,23 @@ export function Pagination({
 
   const visiblePages = getVisiblePages();
 
-  const baseButtonClasses = "h-9 px-3 text-sm font-medium transition-all duration-200";
+  const baseButtonClasses =
+    "h-9 px-3 text-sm font-medium transition-all duration-200";
   const classes = variantClasses[variant];
 
   return (
-    <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-4", className)}>
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4",
+        className
+      )}
+    >
       {showInfo && (
-        <div className={cn("text-sm", classes.info)}>
+        <div className={cn("text-sm text-center sm:text-left", classes.info)}>
           Page {currentPage} sur {totalPages}
         </div>
       )}
-      
+
       <div className="flex items-center gap-1">
         {/* Bouton précédent */}
         <Button
@@ -163,17 +174,24 @@ export function PaginationWithSelector({
   onItemsPerPageChange,
   itemsPerPageOptions = [6, 12, 24, 48],
   className,
-  variant = "bliss"
+  variant = "bliss",
 }: PaginationWithSelectorProps) {
   const classes = variantClasses[variant];
 
   return (
-    <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-4", className)}>
-      <div className={cn("text-sm", classes.info)}>
-        Affichage de {((currentPage - 1) * itemsPerPage) + 1} à {Math.min(currentPage * itemsPerPage, totalItems)} sur {totalItems} résultats
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row items-center justify-between w-full gap-3 sm:gap-4",
+        className
+      )}
+    >
+      <div className={cn("text-sm text-center sm:text-left", classes.info)}>
+        Affichage de {(currentPage - 1) * itemsPerPage + 1} à{" "}
+        {Math.min(currentPage * itemsPerPage, totalItems)} sur {totalItems}{" "}
+        résultats
       </div>
-      
-      <div className="flex items-center gap-4">
+
+      <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
         {/* Sélecteur d'éléments par page */}
         {onItemsPerPageChange && (
           <div className="flex items-center gap-2">
@@ -183,12 +201,12 @@ export function PaginationWithSelector({
               onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
               className={cn(
                 "px-2 py-1 text-sm rounded border transition-colors",
-                variant === "bliss" 
+                variant === "bliss"
                   ? "bg-gray-800/60 border-gray-700 text-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                   : "bg-white border-gray-300 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
               )}
             >
-              {itemsPerPageOptions.map(option => (
+              {itemsPerPageOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
@@ -196,7 +214,7 @@ export function PaginationWithSelector({
             </select>
           </div>
         )}
-        
+
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

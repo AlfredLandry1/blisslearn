@@ -58,10 +58,17 @@ export function RegisterForm() {
       if (!response.ok) {
         setError(errorKey, data.error || "Erreur lors de l'inscription");
       } else {
-        setSuccess("Compte créé avec succès ! Redirection vers la connexion...");
-        setTimeout(() => {
-          router.push("/auth/login");
-        }, 2000);
+        if (data.verificationRequired) {
+          setSuccess("Compte créé avec succès ! Veuillez vérifier votre email pour activer votre compte.");
+          setTimeout(() => {
+            router.push("/auth/verify-email");
+          }, 2000);
+        } else {
+          setSuccess("Compte créé avec succès ! Redirection vers la connexion...");
+          setTimeout(() => {
+            router.push("/auth/login");
+          }, 2000);
+        }
       }
       
     } catch (error) {

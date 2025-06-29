@@ -32,14 +32,14 @@ interface ProgressStats {
 
 export function ProgressStats() {
   const [stats, setStats] = useState<ProgressStats | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const { setLoading: setGlobalLoading, clearLoading, addNotification } = useUIStore();
+  const { addNotification, setLoading, isKeyLoading } = useUIStore();
   const loadingKey = "progress-stats";
+  const loading = isKeyLoading(loadingKey);
 
   useEffect(() => {
     const fetchStats = async () => {
-      setGlobalLoading(loadingKey, true);
+      setLoading(loadingKey, true);
       try {
         const response = await fetch("/api/courses/progress/stats");
         if (response.ok) {
@@ -48,20 +48,18 @@ export function ProgressStats() {
         }
       } catch (error) {
         addNotification({
-          id: `stats-error-${Date.now()}`,
           type: "error",
           title: "Erreur",
           message: "Impossible de charger les statistiques",
           duration: 5000
         });
       } finally {
-        setGlobalLoading(loadingKey, false);
-        setLoading(false);
+        setLoading(loadingKey, false);
       }
     };
 
     fetchStats();
-  }, [setGlobalLoading, clearLoading, addNotification, loadingKey]);
+  }, [addNotification, setLoading, loadingKey]);
 
   if (loading || !stats) {
     return (

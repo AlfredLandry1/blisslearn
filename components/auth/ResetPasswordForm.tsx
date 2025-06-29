@@ -37,7 +37,7 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
   const searchParams = useSearchParams();
   const tokenFromProps = searchParams?.get('token');
   
-  const { setLoading, clearLoading, addNotification } = useUIStore();
+  const { setLoading, clearLoading, setError, clearError, addNotification } = useUIStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
@@ -57,16 +57,26 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
     const validateToken = async () => {
       try {
         const response = await fetch(`/api/auth/reset-password/validate?token=${tokenFromProps}`);
-        const data = await response.json();
+        
+        if (!response.ok) {
+          setIsTokenValid(false);
+          return;
+        }
 
-        if (response.ok) {
-          setIsTokenValid(true);
-          setUserEmail(data.email);
-        } else {
+        try {
+          const data = await response.json();
+          if (data.valid) {
+            setIsTokenValid(true);
+            setUserEmail(data.user?.email || "");
+          } else {
+            setIsTokenValid(false);
+          }
+        } catch (parseError) {
+          // Si on ne peut pas parser la réponse JSON, considérer le token comme invalide
           setIsTokenValid(false);
         }
       } catch (error) {
-        console.error("Erreur lors de la validation du token:", error);
+        // Gestion silencieuse des erreurs de validation
         setIsTokenValid(false);
       }
     };
@@ -78,6 +88,7 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
     if (!tokenFromProps) return;
 
     setLoading(loadingKey, true);
+    clearError(errorKey);
     
     try {
       const response = await fetch("/api/auth/reset-password", {
@@ -89,36 +100,57 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
         }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setIsPasswordReset(true);
-        resetForm();
+      // Gérer les erreurs de réponse
+      if (!response.ok) {
+        let errorMessage = "Erreur lors de la réinitialisation du mot de passe";
         
-        addNotification({
-          id: `password-reset-success-${Date.now()}`,
-          type: "success",
-          title: "Mot de passe mis à jour",
-          message: "Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.",
-          duration: 5000
-        });
-
-        // Rediriger vers la page de connexion après 3 secondes
-        setTimeout(() => {
-          router.push("/auth/login");
-        }, 3000);
-      } else {
-        throw new Error(data.error || "Erreur lors de la réinitialisation du mot de passe");
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch (parseError) {
+          // Si on ne peut pas parser la réponse JSON, utiliser le message par défaut
+        }
+        
+        setError(errorKey, errorMessage);
+        return;
       }
-    } catch (error) {
-      console.error("Erreur lors de la réinitialisation:", error);
+
+      // Traitement de la réponse réussie
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        // Si on ne peut pas parser la réponse JSON, utiliser des valeurs par défaut
+        data = { message: "Votre mot de passe a été réinitialisé avec succès. Un email de confirmation vous a été envoyé." };
+      }
+
+      setIsPasswordReset(true);
+      resetForm();
+      
       addNotification({
-        id: `password-reset-error-${Date.now()}`,
-        type: "error",
-        title: "Erreur",
-        message: error instanceof Error ? error.message : "Impossible de réinitialiser le mot de passe",
+        id: `password-reset-success-${Date.now()}`,
+        type: "success",
+        title: "Mot de passe mis à jour",
+        message: data.message || "Votre mot de passe a été réinitialisé avec succès. Un email de confirmation vous a été envoyé.",
         duration: 5000
       });
+
+      // Rediriger vers la page de connexion après 3 secondes
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 3000);
+      
+    } catch (error) {
+      // Gestion des erreurs réseau ou autres erreurs
+      let errorMessage = "Impossible de réinitialiser le mot de passe";
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = "Erreur de connexion. Vérifiez votre connexion internet et réessayez.";
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorKey, errorMessage);
     } finally {
       setLoading(loadingKey, false);
       setSubmitting(false);
@@ -258,7 +290,7 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-gray-400 text-sm sm:text-base"
             >
-              Votre mot de passe a été mis à jour avec succès. Vous allez être redirigé vers la page de connexion.
+              Votre mot de passe a été mis à jour avec succès. Un email de confirmation vous a été envoyé. Vous allez être redirigé vers la page de connexion.
             </motion.p>
           </CardHeader>
 
@@ -351,7 +383,7 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
         </CardHeader>
 
         <CardContent className="space-y-8 px-8 pb-8">
-          <ErrorDisplay errorKey={errorKey} variant="toast" />
+          <ErrorDisplay errorKey={errorKey} variant="inline" />
 
           <Formik
             initialValues={initialResetPasswordValues}

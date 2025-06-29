@@ -11,14 +11,16 @@ interface StatsCardProps {
 }
 
 export const StatsCard: React.FC<StatsCardProps> = ({ icon, title, value, color = "text-primary", children, className }) => (
-  <div className={clsx("bg-gray-900/60 border border-gray-700 rounded-lg p-6 flex flex-col gap-2", className)}>
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-gray-400">{title}</p>
-        <p className="text-6xl font-bold text-white">{value}</p>
+  <div className={clsx("bg-gray-900/60 border border-gray-700 rounded-lg p-6 flex flex-col gap-2 overflow-hidden min-w-0", className)}>
+    <div className="flex items-center justify-between min-w-0 w-full">
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <p className="text-sm text-gray-400 truncate overflow-hidden">{title}</p>
+        <p className="text-6xl font-bold text-white truncate overflow-hidden">{value}</p>
       </div>
-      {icon && <span className={clsx("w-8 h-8", color)}>{icon}</span>}
+      {icon && <span className={clsx("w-8 h-8 flex-shrink-0 min-w-0", color)}>{icon}</span>}
     </div>
-    {children}
+    <div className="overflow-hidden min-w-0">
+      {children}
+    </div>
   </div>
 ); 

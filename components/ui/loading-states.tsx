@@ -18,8 +18,8 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   className = "",
   text
 }) => {
-  const { isLoading } = useUIStore();
-  const loading = isLoading(loadingKey);
+  const { isKeyLoading } = useUIStore();
+  const loading = isKeyLoading(loadingKey);
 
   if (!loading) return null;
 
@@ -50,8 +50,8 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   fallback,
   className = ""
 }) => {
-  const { isLoading } = useUIStore();
-  const loading = isLoading(loadingKey);
+  const { isKeyLoading } = useUIStore();
+  const loading = isKeyLoading(loadingKey);
 
   if (!loading) return <>{children}</>;
 
@@ -100,8 +100,8 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
   onClick,
   type = "button"
 }) => {
-  const { isLoading } = useUIStore();
-  const loading = isLoading(loadingKey);
+  const { isKeyLoading } = useUIStore();
+  const loading = isKeyLoading(loadingKey);
 
   const baseClasses = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background";
   
@@ -136,12 +136,12 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
 
 // Hook utilitaire pour gérer les états de chargement
 export const useLoadingHandler = (loadingKey: string) => {
-  const { setLoading, clearLoading, isLoading } = useUIStore();
+  const { setLoading, clearLoading, isKeyLoading } = useUIStore();
 
   return {
     setLoading: (loading: boolean) => setLoading(loadingKey, loading),
     clearLoading: () => clearLoading(loadingKey),
-    isLoading: () => isLoading(loadingKey),
+    isLoading: () => isKeyLoading(loadingKey),
     LoadingSpinner: (props: Omit<LoadingSpinnerProps, "loadingKey">) => (
       <LoadingSpinner loadingKey={loadingKey} {...props} />
     ),

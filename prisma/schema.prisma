@@ -39,17 +39,54 @@ model session {
 model user {
   id            String    @id @default(cuid())
   name          String?
-  email         String?   @unique(map: "User_email_key")
+  email         String    @unique
   emailVerified DateTime?
-  password      String?   @db.Text
   image         String?
-  provider      String?   // "google", "credentials", etc.
-  account       account[]
-  session       session[]
-  onboarding    onboarding_responses?
-  chatMessages  chat_message[]
+  password      String?
+  provider      String?   @default("credentials")
+  
+  // Champs d'onboarding
+  onboardingCompleted Boolean @default(false)
+  onboardingStep      Int     @default(1)
+  
+  // Champs de profil
+  bio           String?   @db.Text
+  location      String?
+  website       String?
+  company       String?
+  jobTitle      String?
+  skills        String?   @db.Text // JSON des compétences
+  interests     String?   @db.Text // JSON des centres d'intérêt
+  learningGoals String?   @db.Text // JSON des objectifs d'apprentissage
+  
+  // Champs de préférences
+  timezone      String?   @default("Europe/Paris")
+  language      String?   @default("fr")
+  emailNotifications Boolean @default(true)
+  pushNotifications Boolean @default(true)
+  
+  // Champs de statistiques
+  totalCoursesStarted    Int @default(0)
+  totalCoursesCompleted  Int @default(0)
+  totalTimeSpent         Int @default(0) // en minutes
+  totalCertifications    Int @default(0)
+  streakDays             Int @default(0)
+  lastActivityAt         DateTime?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      account[]
+  sessions      session[]
   userCourseProgress user_course_progress[]
+  onboardingResponses onboarding_responses[]
   passwordResetTokens passwordResetToken[]
+  chatMessages  chat_message[]
+  certifications certification[]
+  notifications notification[]
+
+  @@index([onboardingCompleted])
+  @@index([lastActivityAt])
 }
 
 model onboarding_responses {
@@ -118,28 +155,54 @@ model chat_message {
 }
 
 model course {
-  id              Int      @id @default(autoincrement())
-  course_id       String?  // identifiant d'origine (peut être string ou int dans le CSV)
-  title           String?
-  platform        String?
-  provider        String?
-  description     String?  @db.Text
-  skills          String?  @db.Text // JSON ou liste de skills
-  level           String?
-  duration        String?
-  rating          Float?
-  price           String?
-  language        String?
-  format          String?
-  start_date      DateTime?
-  url             String?
-  certificate_type String?
-  extra           String?  @db.Text
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  userCourseProgress user_course_progress[]
-  learningPathCourses learning_path_course[]
-  @@index([platform, provider])
+  id                    Int      @id @default(autoincrement())
+  course_id             String   @unique // UUID du CSV
+  title                 String
+  link                  String   @db.Text // URL du cours
+  platform              String
+  institution           String?
+  instructor            String?
+  description           String?  @db.Text
+  skills                String?  @db.Text // JSON ou liste de skills
+  category              String?
+  level_normalized      String?  // Niveau normalisé (beginner, intermediate, advanced)
+  duration_hours        Float?   // Durée en heures
+  price_numeric         Float?   // Prix numérique
+  rating_numeric        Float?   // Note numérique
+  reviews_count_numeric Int?     // Nombre d'avis
+  enrolled_students     String?  // Peut contenir des virgules, donc String
+  course_type           String?  // Type de cours (Certification course, etc.)
+  mode                  String?  // Mode d'apprentissage
+  availability          String?  // Disponibilité
+  source_file           String?  // Fichier source (alison.csv, etc.)
+  
+  // Champs existants conservés pour compatibilité
+  provider              String?
+  level                 String?  // Ancien champ level
+  duration              String?  // Ancien champ duration
+  rating                Float?   // Ancien champ rating
+  price                 String?  // Ancien champ price
+  language              String?
+  format                String?
+  start_date            DateTime?
+  url                   String?  // Ancien champ url
+  certificate_type      String?
+  extra                 String?  @db.Text
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  userCourseProgress    user_course_progress[]
+  learningPathCourses   learning_path_course[]
+  certifications        certification[]
+  
+  @@index([platform])
+  @@index([category])
+  @@index([level_normalized])
+  @@index([course_type])
+  @@index([institution])
+  @@index([rating_numeric])
+  @@index([price_numeric])
 }
 
 model user_course_progress {
@@ -171,6 +234,7 @@ model user_course_progress {
   // Relations vers les paliers et rapports
   milestones milestone[]
   reports    course_report[]
+  certifications certification[]
 
   @@unique([userId, courseId])
   @@index([userId])
@@ -266,4 +330,77 @@ model learning_path_course {
 
   learning_path learning_path @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
   course        course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+// Modèle pour les certifications obtenues par les utilisateurs
+model certification {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    Int
+  progressId  String
+  
+  // Informations de la certification
+  title       String   // Titre de la certification
+  description String?  @db.Text // Description détaillée
+  certificateNumber String @unique // Numéro unique de certification
+  issuedAt    DateTime @default(now()) // Date d'émission
+  expiresAt   DateTime? // Date d'expiration (optionnelle)
+  
+  // Métadonnées du cours
+  courseTitle String   // Titre du cours au moment de la certification
+  institution String?  // Institution du cours
+  level       String?  // Niveau du cours
+  duration    String?  // Durée du cours
+  
+  // Statistiques de l'apprenant
+  timeSpent   Int?     // Temps total passé en minutes
+  completionDate DateTime // Date de complétion du cours
+  
+  // Statut et validation
+  status      String   @default("active") // "active", "expired", "revoked"
+  isVerified  Boolean  @default(true) // Certification vérifiée par la plateforme
+  
+  // Relations
+  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user_course_progress user_course_progress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([progressId])
+  @@index([certificateNumber])
+  @@index([issuedAt])
+  @@index([status])
+}
+
+model notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Contenu de la notification
+  title       String?  // Titre de la notification
+  message     String   @db.Text // Message principal
+  type        String   // "success", "error", "info", "warning"
+  
+  // Métadonnées
+  read        Boolean  @default(false) // Si la notification a été lue
+  readAt      DateTime? // Date de lecture
+  duration    Int?     // Durée d'affichage en millisecondes
+  
+  // Données contextuelles (optionnelles)
+  actionUrl   String?  // URL d'action associée
+  actionText  String?  // Texte du bouton d'action
+  metadata    String?  @db.Text // Données JSON supplémentaires
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Index pour la suppression automatique et les requêtes
+  @@index([userId, createdAt])
+  @@index([createdAt]) // Pour la suppression automatique
 }

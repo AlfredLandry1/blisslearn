@@ -12,7 +12,7 @@ import Link from "next/link";
 export const HeroSection = React.memo(function HeroSection() {
   return (
     <section
-      className="relative z-10 py-16 sm:py-20 lg:py-32 px-4 sm:px-6 lg:px-8 overflow-hidden"
+      className="relative z-10 py-12 sm:py-16 lg:py-20 xl:py-32 px-4 sm:px-6 lg:px-8 overflow-hidden"
       id="hero"
       aria-labelledby="section-title"
     >
@@ -20,7 +20,7 @@ export const HeroSection = React.memo(function HeroSection() {
       <SpaceBackground />
 
       <div className="max-w-7xl mx-auto relative z-10">
-        <div className="grid lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-20 items-center">
+        <div className="grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 xl:gap-20 items-center">
           {/* Left Content */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -28,12 +28,12 @@ export const HeroSection = React.memo(function HeroSection() {
             transition={{ duration: 0.8 }}
             className="text-center lg:text-left order-2 lg:order-1"
           >
-            <Badge className="mb-4 sm:mb-6 bg-blue-500/10 text-blue-400 border-blue-500/20 text-sm sm:text-base">
-              <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-2" aria-hidden="true" />
+            <Badge className="mb-3 sm:mb-4 lg:mb-6 bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs sm:text-sm lg:text-base">
+              <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" aria-hidden="true" />
               Nouvelle génération d'apprentissage
             </Badge>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-3 sm:mb-4 lg:mb-6 leading-tight">
               L'avenir de l'
               <span className="bg-gradient-to-r from-blue-400 to-blue-300 bg-clip-text text-transparent">
                 apprentissage
@@ -42,7 +42,7 @@ export const HeroSection = React.memo(function HeroSection() {
               est maintenant
             </h1>
 
-            <p className="text-lg sm:text-xl text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl xl:text-2xl text-gray-300 mb-4 sm:mb-6 lg:mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
               BlissLearn révolutionne l'éducation avec l'IA, des parcours
               personnalisés et une communauté mondiale d'apprenants passionnés.
             </p>
@@ -51,12 +51,12 @@ export const HeroSection = React.memo(function HeroSection() {
               <Link href="/dashboard">
                 <Button
                   size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 text-sm sm:text-base lg:text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 w-full sm:w-auto"
                   aria-label="Action"
                 >
                   Commencer gratuitement
                   <ArrowRight
-                    className="ml-2 w-4 h-4 sm:w-5 sm:h-5"
+                    className="ml-1.5 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5"
                     aria-hidden="true"
                   />
                 </Button>
@@ -64,11 +64,11 @@ export const HeroSection = React.memo(function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-gray-600 text-gray-300 hover:bg-gray-800/50 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+                className="border-gray-600 text-gray-300 hover:bg-gray-800/50 px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 text-sm sm:text-base lg:text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 w-full sm:w-auto"
                 aria-label="Action"
               >
                 <Play
-                  className="mr-2 w-4 h-4 sm:w-5 sm:h-5"
+                  className="mr-1.5 sm:mr-2 w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5"
                   aria-hidden="true"
                 />
                 Voir la démo
@@ -76,15 +76,15 @@ export const HeroSection = React.memo(function HeroSection() {
             </div>
 
             {/* Social proof */}
-            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-2 sm:space-y-0 sm:space-x-6 text-xs sm:text-sm text-gray-400">
-              <div className="flex items-center space-x-2">
+            <div className="mt-4 sm:mt-6 lg:mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-2 sm:space-y-0 sm:space-x-4 lg:space-x-6 text-xs sm:text-sm lg:text-base text-gray-400">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <Star
                   className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current"
                   aria-hidden="true"
                 />
                 <span>4.9/5 étoiles</span>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <Users
                   className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400"
                   aria-hidden="true"

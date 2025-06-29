@@ -37,6 +37,11 @@ export function UserInfoCard() {
   // Vérifier le statut du mot de passe au chargement
   useEffect(() => {
     const checkPasswordStatus = async () => {
+      // Éviter les appels répétés si on a déjà les données
+      if (passwordStatus.hasPassword !== false || isLoadingPasswordStatus === false) {
+        return;
+      }
+
       try {
         const response = await fetch("/api/auth/check-password");
         if (response.ok) {
@@ -54,7 +59,7 @@ export function UserInfoCard() {
     if (user) {
       checkPasswordStatus();
     }
-  }, [user, updatePasswordStatus]);
+  }, [user]); // Retirer updatePasswordStatus des dépendances
 
   const handleCompleteOnboarding = () => {
     router.push("/onboarding");
@@ -89,7 +94,7 @@ export function UserInfoCard() {
   );
 
   const footer = (
-    <div className="w-full mt-2 flex flex-col gap-2">
+    <div className="w-full mt-2 flex flex-col gap-2 pb-2">
       {/* Badge d'onboarding */}
       <Badge
         variant={onboardingCompleted ? "default" : "secondary"}

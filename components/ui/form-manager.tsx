@@ -127,9 +127,9 @@ export const Form: React.FC<FormProps> = ({
   className = ""
 }) => {
   const { form, submitForm } = useFormManager(formKey);
-  const { isLoading } = useUIStore();
+  const { isKeyLoading } = useUIStore();
   
-  const loading = loadingKey ? isLoading(loadingKey) : false;
+  const loading = loadingKey ? isKeyLoading(loadingKey) : false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

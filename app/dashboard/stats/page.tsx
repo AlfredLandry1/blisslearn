@@ -3,6 +3,7 @@
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PredictionCard } from "@/components/dashboard/PredictionCard";
 import { 
   BarChart3, 
   TrendingUp, 
@@ -91,20 +92,20 @@ export default function StatsPage() {
         {/* Métriques principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {metrics.map((metric, index) => (
-            <Card key={index} className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-400 text-sm">{metric.label}</p>
-                    <p className="text-2xl font-bold text-white mt-1">{metric.value}</p>
-                    <p className={`text-xs mt-1 ${
+            <Card key={index} className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700 overflow-hidden">
+              <CardContent className="p-4 overflow-hidden">
+                <div className="flex items-center justify-between min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-gray-400 text-sm truncate">{metric.label}</p>
+                    <p className="text-2xl font-bold text-white mt-1 truncate">{metric.value}</p>
+                    <p className={`text-xs mt-1 truncate ${
                       metric.trend === "up" ? "text-green-400" : 
                       metric.trend === "down" ? "text-red-400" : "text-gray-400"
                     }`}>
                       {metric.change}
                     </p>
                   </div>
-                  <div className={`p-3 rounded-full bg-gray-800/50`}>
+                  <div className={`p-3 rounded-full bg-gray-800/50 flex-shrink-0`}>
                     <metric.icon className={`w-6 h-6 ${metric.color}`} />
                   </div>
                 </div>
@@ -116,14 +117,14 @@ export default function StatsPage() {
         {/* Graphiques */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Évolution mensuelle */}
-          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <TrendingUp className="w-5 h-5 mr-2" />
+          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700 overflow-hidden">
+            <CardHeader className="overflow-hidden">
+              <CardTitle className="text-white flex items-center truncate">
+                <TrendingUp className="w-5 h-5 mr-2 flex-shrink-0" />
                 Évolution mensuelle
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-hidden">
               <div className="space-y-4">
                 <div className="flex items-end justify-between h-32">
                   {monthlyData.map((month, index) => (
@@ -138,19 +139,19 @@ export default function StatsPage() {
                           style={{ height: `${(month.courses / 6) * 100}%` }}
                         />
                       </div>
-                      <span className="text-gray-400 text-xs">{month.month}</span>
+                      <span className="text-gray-400 text-xs truncate">{month.month}</span>
                     </div>
                   ))}
                 </div>
                 
                 <div className="flex items-center justify-center space-x-4 text-xs">
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-gradient-to-t from-blue-500 to-purple-600 rounded mr-1"></div>
-                    <span className="text-gray-400">Heures</span>
+                    <div className="w-3 h-3 bg-gradient-to-t from-blue-500 to-purple-600 rounded mr-1 flex-shrink-0"></div>
+                    <span className="text-gray-400 truncate">Heures</span>
                   </div>
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-gradient-to-t from-green-500 to-blue-600 rounded mr-1"></div>
-                    <span className="text-gray-400">Cours</span>
+                    <div className="w-3 h-3 bg-gradient-to-t from-green-500 to-blue-600 rounded mr-1 flex-shrink-0"></div>
+                    <span className="text-gray-400 truncate">Cours</span>
                   </div>
                 </div>
               </div>
@@ -158,20 +159,20 @@ export default function StatsPage() {
           </Card>
 
           {/* Répartition par catégorie */}
-          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <BarChart3 className="w-5 h-5 mr-2" />
+          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700 overflow-hidden">
+            <CardHeader className="overflow-hidden">
+              <CardTitle className="text-white flex items-center truncate">
+                <BarChart3 className="w-5 h-5 mr-2 flex-shrink-0" />
                 Répartition par catégorie
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-hidden">
               <div className="space-y-4">
                 {categoryData.map((category, index) => (
                   <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-white text-sm">{category.category}</span>
-                      <span className="text-gray-400 text-sm">{category.hours}h</span>
+                    <div className="flex items-center justify-between min-w-0">
+                      <span className="text-white text-sm truncate flex-1">{category.category}</span>
+                      <span className="text-gray-400 text-sm flex-shrink-0">{category.hours}h</span>
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div 
@@ -187,14 +188,19 @@ export default function StatsPage() {
           </Card>
         </div>
 
+        {/* Carte de prédictions d'évolution */}
+        <div className="w-full">
+          <PredictionCard />
+        </div>
+
         {/* Statistiques détaillées */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Activité quotidienne */}
-          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Activité quotidienne</CardTitle>
+          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700 overflow-hidden">
+            <CardHeader className="overflow-hidden">
+              <CardTitle className="text-white truncate">Activité quotidienne</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-hidden">
               <div className="space-y-3">
                 {[
                   { day: "Lundi", hours: 2.5, streak: true },
@@ -205,9 +211,9 @@ export default function StatsPage() {
                   { day: "Samedi", hours: 5.2, streak: true },
                   { day: "Dimanche", hours: 3.7, streak: true }
                 ].map((day, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-gray-300 text-sm">{day.day}</span>
-                    <div className="flex items-center space-x-2">
+                  <div key={index} className="flex items-center justify-between min-w-0">
+                    <span className="text-gray-300 text-sm truncate flex-1">{day.day}</span>
+                    <div className="flex items-center space-x-2 flex-shrink-0">
                       <span className="text-white text-sm">{day.hours}h</span>
                       {day.streak && (
                         <div className="w-2 h-2 bg-green-400 rounded-full"></div>
@@ -220,11 +226,11 @@ export default function StatsPage() {
           </Card>
 
           {/* Objectifs */}
-          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Objectifs du mois</CardTitle>
+          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700 overflow-hidden">
+            <CardHeader className="overflow-hidden">
+              <CardTitle className="text-white truncate">Objectifs du mois</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-hidden">
               <div className="space-y-4">
                 {[
                   { goal: "Temps d'apprentissage", current: 45, target: 50, unit: "h" },
@@ -233,9 +239,9 @@ export default function StatsPage() {
                   { goal: "Score moyen", current: 87, target: 90, unit: "%" }
                 ].map((goal, index) => (
                   <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300 text-sm">{goal.goal}</span>
-                      <span className="text-white text-sm">
+                    <div className="flex items-center justify-between min-w-0">
+                      <span className="text-gray-300 text-sm truncate flex-1">{goal.goal}</span>
+                      <span className="text-white text-sm flex-shrink-0">
                         {goal.current}/{goal.target}{goal.unit}
                       </span>
                     </div>
@@ -252,11 +258,11 @@ export default function StatsPage() {
           </Card>
 
           {/* Classement */}
-          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Classement</CardTitle>
+          <Card className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700 overflow-hidden">
+            <CardHeader className="overflow-hidden">
+              <CardTitle className="text-white truncate">Classement</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-hidden">
               <div className="space-y-3">
                 {[
                   { rank: 1, name: "Marie D.", score: 95, isYou: false },
@@ -265,11 +271,11 @@ export default function StatsPage() {
                   { rank: 4, name: "Sophie M.", score: 84, isYou: false },
                   { rank: 5, name: "Thomas R.", score: 81, isYou: false }
                 ].map((user, index) => (
-                  <div key={index} className={`flex items-center justify-between p-2 rounded ${
+                  <div key={index} className={`flex items-center justify-between p-2 rounded min-w-0 ${
                     user.isYou ? 'bg-blue-500/20 border border-blue-500/30' : ''
                   }`}>
-                    <div className="flex items-center space-x-3">
-                      <span className={`text-sm font-medium ${
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <span className={`text-sm font-medium flex-shrink-0 ${
                         user.rank === 1 ? 'text-yellow-400' :
                         user.rank === 2 ? 'text-gray-300' :
                         user.rank === 3 ? 'text-orange-400' :
@@ -277,13 +283,13 @@ export default function StatsPage() {
                       }`}>
                         #{user.rank}
                       </span>
-                      <span className={`text-sm ${
+                      <span className={`text-sm truncate ${
                         user.isYou ? 'text-blue-400 font-medium' : 'text-white'
                       }`}>
                         {user.name}
                       </span>
                     </div>
-                    <span className="text-white text-sm">{user.score}%</span>
+                    <span className="text-white text-sm flex-shrink-0">{user.score}%</span>
                   </div>
                 ))}
               </div>

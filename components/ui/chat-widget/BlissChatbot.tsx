@@ -13,6 +13,8 @@ import {
   Minimize2,
   AlertTriangle,
   RefreshCw,
+  Send,
+  RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
@@ -43,24 +45,13 @@ export const BlissChatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [maximized, setMaximized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const {
-    isLoading,
-    setLoading,
-    clearLoading,
-    setError,
-    clearError,
-    getError,
-    showConfirmation,
-    hideConfirmation,
-    confirmations,
-  } = useUIStore();
-
-  const loadingKey = "chatbot";
-  const errorKey = "chatbot-error";
-  const confirmationKey = "clear-chat-history";
+  const { setLoading, isKeyLoading, addNotification } = useUIStore();
+  const loadingKey = "bliss-chatbot";
+  const loading = isKeyLoading(loadingKey);
 
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -109,7 +100,7 @@ export const BlissChatbot: React.FC = () => {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(loadingKey, true);
-    clearError(errorKey);
+    setError(null);
 
     try {
       const res = await fetch(GEMINI_API_ROUTE, {
@@ -129,7 +120,13 @@ export const BlissChatbot: React.FC = () => {
       ]);
     } catch (error) {
       console.error("Failed to send message:", error);
-      setError(errorKey, "Erreur lors de l'envoi du message");
+      setError("Erreur lors de l'envoi du message");
+      addNotification({
+        type: "error",
+        title: "Erreur de chat",
+        message: "Impossible d'envoyer le message",
+        duration: 5000
+      });
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === userMessage.id ? { ...msg, error: true } : msg
@@ -150,29 +147,31 @@ export const BlissChatbot: React.FC = () => {
   };
 
   const handleClearHistory = async () => {
-    hideConfirmation(confirmationKey);
     setLoading(loadingKey, true);
     try {
       const res = await fetch(GEMINI_API_ROUTE, { method: "DELETE" });
-      if (res.ok) setMessages([]);
+      if (res.ok) {
+        setMessages([]);
+        addNotification({
+          type: "success",
+          title: "Historique effacé",
+          message: "L'historique de conversation a été supprimé",
+          duration: 3000
+        });
+      }
+    } catch (error) {
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: "Impossible d'effacer l'historique",
+        duration: 5000
+      });
     } finally {
       setLoading(loadingKey, false);
     }
   };
 
-  const showClearConfirmation = () => {
-    showConfirmation(confirmationKey, {
-      message:
-        "Êtes-vous sûr de vouloir effacer tout l'historique de conversation ?",
-      onConfirm: handleClearHistory,
-      onCancel: () => hideConfirmation(confirmationKey),
-    });
-  };
-
   const session = useSession();
-  const loading = isLoading(loadingKey);
-  const error = getError(errorKey);
-  const showConfirm = !!confirmations[confirmationKey];
 
   // Futuristic glassmorphism + BlissLearn blue
   return (
@@ -180,7 +179,7 @@ export const BlissChatbot: React.FC = () => {
       {/* Bouton flottant IA */}
       {!open && (
         <button
-          className="fixed bottom-18 right-6 z-50 bg-gradient-to-br from-blue-600 to-blue-400 text-white p-4 rounded-full shadow-2xl hover:scale-105 transition-all border-2 border-blue-300/40 backdrop-blur-xl flex items-center justify-center"
+          className="fixed bottom-18 right-6 z-50 bg-gradient-to-br from-blue-600 to-blue-400 text-white p-4 rounded-full shadow-2xl transition-all border-2 border-blue-300/40 backdrop-blur-xl flex items-center justify-center"
           onClick={() => setOpen(true)}
           aria-label="Ouvrir le chat IA"
         >
@@ -272,7 +271,7 @@ export const BlissChatbot: React.FC = () => {
                   {/* Effacer l'historique */}
                   <button
                     className="p-2 rounded-full hover:bg-red-900/30 text-red-400 hover:text-white transition"
-                    onClick={showClearConfirmation}
+                    onClick={handleClearHistory}
                     aria-label="Effacer l'historique"
                     disabled={loading || messages.length === 0}
                   >

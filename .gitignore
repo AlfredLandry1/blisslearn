@@ -14,7 +14,7 @@
 /coverage
 /tests
 /docs
-/scripts
+# /scripts
 
 # next.js
 /.next/

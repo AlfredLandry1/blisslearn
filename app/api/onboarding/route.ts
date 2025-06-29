@@ -17,35 +17,45 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     
-    // Créer ou mettre à jour les réponses d'onboarding avec requête SQL brute
-    const onboarding = await prisma.$executeRaw`
-      INSERT INTO onboarding_responses (
-        id, userId, learningObjectives, domainsOfInterest, skillLevel, 
-        weeklyHours, preferredPlatforms, courseFormat, courseDuration, 
-        courseLanguage, isCompleted, completedAt, createdAt, updatedAt
-      ) VALUES (
-        UUID(), ${session.user.id}, 
-        ${JSON.stringify(data.learningObjectives || [])}, 
-        ${JSON.stringify(data.domainsOfInterest || [])}, 
-        ${data.skillLevel || ""}, ${data.weeklyHours || 0}, 
-        ${JSON.stringify(data.preferredPlatforms || [])}, 
-        ${JSON.stringify(data.coursePreferences?.format || [])}, 
-        ${data.coursePreferences?.duration || ""}, 
-        ${data.coursePreferences?.language || ""}, 
-        true, NOW(), NOW(), NOW()
-      ) ON DUPLICATE KEY UPDATE
-        learningObjectives = VALUES(learningObjectives),
-        domainsOfInterest = VALUES(domainsOfInterest),
-        skillLevel = VALUES(skillLevel),
-        weeklyHours = VALUES(weeklyHours),
-        preferredPlatforms = VALUES(preferredPlatforms),
-        courseFormat = VALUES(courseFormat),
-        courseDuration = VALUES(courseDuration),
-        courseLanguage = VALUES(courseLanguage),
-        isCompleted = true,
-        completedAt = NOW(),
-        updatedAt = NOW()
-    `;
+    // Créer ou mettre à jour les réponses d'onboarding
+    const onboarding = await prisma.onboarding_responses.upsert({
+      where: { userId: session.user.id },
+      update: {
+        learningObjectives: JSON.stringify(data.learningObjectives || []),
+        domainsOfInterest: JSON.stringify(data.domainsOfInterest || []),
+        skillLevel: data.skillLevel || "",
+        weeklyHours: data.weeklyHours || 0,
+        preferredPlatforms: JSON.stringify(data.preferredPlatforms || []),
+        courseFormat: JSON.stringify(data.coursePreferences?.format || []),
+        courseDuration: data.coursePreferences?.duration || "",
+        courseLanguage: data.coursePreferences?.language || "",
+        isCompleted: true,
+        completedAt: new Date(),
+        updatedAt: new Date()
+      },
+      create: {
+        userId: session.user.id,
+        learningObjectives: JSON.stringify(data.learningObjectives || []),
+        domainsOfInterest: JSON.stringify(data.domainsOfInterest || []),
+        skillLevel: data.skillLevel || "",
+        weeklyHours: data.weeklyHours || 0,
+        preferredPlatforms: JSON.stringify(data.preferredPlatforms || []),
+        courseFormat: JSON.stringify(data.coursePreferences?.format || []),
+        courseDuration: data.coursePreferences?.duration || "",
+        courseLanguage: data.coursePreferences?.language || "",
+        isCompleted: true,
+        completedAt: new Date()
+      }
+    });
+
+    // Mettre à jour le statut d'onboarding dans la table user
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { 
+        onboardingCompleted: true,
+        onboardingStep: 7 // Étape finale
+      }
+    });
 
     return NextResponse.json(
       { 
@@ -75,30 +85,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Récupérer les réponses d'onboarding existantes avec requête SQL brute
-    const onboarding = await prisma.$queryRaw`
-      SELECT * FROM onboarding_responses WHERE userId = ${session.user.id} LIMIT 1
-    `;
+    // Récupérer les réponses d'onboarding existantes
+    const onboarding = await prisma.onboarding_responses.findUnique({
+      where: { userId: session.user.id }
+    });
 
-    if (!onboarding || (onboarding as any[]).length === 0) {
+    if (!onboarding) {
       return NextResponse.json(
         { onboarding: null },
         { status: 200 }
       );
     }
 
-    const onboardingData = (onboarding as any[])[0];
-
     // Parser les données JSON stockées
     const parsedOnboarding = {
-      ...onboardingData,
-      learningObjectives: safeJsonParseArray(onboardingData.learningObjectives),
-      domainsOfInterest: safeJsonParseArray(onboardingData.domainsOfInterest),
-      preferredPlatforms: safeJsonParseArray(onboardingData.preferredPlatforms),
+      ...onboarding,
+      learningObjectives: safeJsonParseArray(onboarding.learningObjectives),
+      domainsOfInterest: safeJsonParseArray(onboarding.domainsOfInterest),
+      preferredPlatforms: safeJsonParseArray(onboarding.preferredPlatforms),
       coursePreferences: {
-        format: safeJsonParseArray(onboardingData.courseFormat),
-        duration: onboardingData.courseDuration,
-        language: onboardingData.courseLanguage,
+        format: safeJsonParseArray(onboarding.courseFormat),
+        duration: onboarding.courseDuration,
+        language: onboarding.courseLanguage,
       },
     };
 

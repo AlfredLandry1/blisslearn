@@ -11,17 +11,19 @@ import { SpaceBackground } from "@/components/ui/SpaceBackground";
 import { ArrowLeft, CheckCircle, Clock, Star, ExternalLink, Users, Award, Calendar, BookOpen, Target } from "lucide-react";
 import { ProgressTracker } from "@/components/courses/ProgressTracker";
 import { useUIStore } from "@/stores/uiStore";
+import { useCourseStore } from "@/stores/courseStore";
 import Link from "next/link";
 import { SectionHeader, CourseSkills, CourseInfo } from "@/components/ui";
 import { safeJsonParseArray } from "@/lib/utils";
 import { PageLoadingState } from "@/components/ui/loading-states";
+import { PriceConverter } from "@/components/ui/PriceConverter";
 
 interface Course {
   id: number;
   title: string;
   description: string;
   platform: string;
-  provider: string;
+  institution: string;
   level: string;
   duration: string;
   rating: number;
@@ -32,6 +34,12 @@ interface Course {
   skills: string;
   certificate_type: string;
   start_date: string;
+  level_normalized: string;
+  duration_hours: number;
+  rating_numeric: number;
+  course_type: string;
+  price_numeric: number;
+  link: string;
 }
 
 interface ProgressData {
@@ -56,15 +64,17 @@ export default function CourseDetailPage() {
   
   const [course, setCourse] = useState<Course | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { setLoading: setGlobalLoading, clearLoading, addNotification } = useUIStore();
+  const { addNotification, setLoading, isKeyLoading } = useUIStore();
   const loadingKey = `my-course-detail-${courseId}`;
+  const loading = isKeyLoading(loadingKey);
+
+  const { refreshCourses } = useCourseStore();
 
   useEffect(() => {
     const fetchCourseData = async () => {
-      setGlobalLoading(loadingKey, true);
+      setLoading(loadingKey, true);
       try {
         // Récupérer les détails du cours
         const courseResponse = await fetch(`/api/courses/${courseId}`);
@@ -83,22 +93,20 @@ export default function CourseDetailPage() {
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur lors du chargement");
         addNotification({
-          id: `course-error-${Date.now()}`,
           type: "error",
           title: "Erreur",
           message: "Impossible de charger les détails du cours",
           duration: 5000
         });
       } finally {
-        setGlobalLoading(loadingKey, false);
-        setLoading(false);
+        setLoading(loadingKey, false);
       }
     };
 
     if (courseId) {
       fetchCourseData();
     }
-  }, [courseId, setGlobalLoading, clearLoading, addNotification, loadingKey]);
+  }, [courseId, setLoading, addNotification, loadingKey]);
 
   const handleProgressUpdate = (updatedProgress: Partial<ProgressData>) => {
     setProgress(prev => prev ? { ...prev, ...updatedProgress } : null);
@@ -154,8 +162,8 @@ export default function CourseDetailPage() {
             <h1 className="text-3xl font-bold mb-2 text-white">{course.title}</h1>
             <div className="flex items-center gap-4 text-sm text-gray-400">
               <span>{course.platform}</span>
-              {course.provider && <span>• {course.provider}</span>}
-              {course.level && <span>• {course.level}</span>}
+              {course.institution && <span>• {course.institution}</span>}
+              {course.level_normalized && <span>• {course.level_normalized}</span>}
             </div>
           </div>
 
@@ -188,12 +196,12 @@ export default function CourseDetailPage() {
                 <div className="px-6 pb-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <CourseInfo
-                      duration={course.duration}
-                      rating={course.rating}
+                      duration={String(course.duration_hours)}
+                      rating={course.rating_numeric}
                       format={course.format}
-                      certificate_type={course.certificate_type}
+                      certificate_type={course.course_type}
                       start_date={course.start_date}
-                      price={course.price}
+                      price={course.price_numeric}
                     />
                   </div>
                 </div>
@@ -206,7 +214,7 @@ export default function CourseDetailPage() {
               <ProgressTracker
                 courseId={course.id}
                 courseTitle={course.title}
-                courseUrl={course.url}
+                courseUrl={course.link}
                 initialProgress={progress || undefined}
                 onProgressUpdate={handleProgressUpdate}
               />
@@ -217,9 +225,9 @@ export default function CourseDetailPage() {
                   <CardTitle className="text-white">Actions rapides</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {course.url && (
+                  {course.link && (
                     <Button 
-                      onClick={() => window.open(course.url, '_blank')}
+                      onClick={() => window.open(course.link, '_blank')}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
@@ -230,18 +238,48 @@ export default function CourseDetailPage() {
                   <Button 
                     variant="outline" 
                     className="w-full border-gray-600 text-gray-300"
-                    onClick={() => {
-                      addNotification({
-                        id: `favorite-${Date.now()}`,
-                        type: "success",
-                        title: "Favori ajouté",
-                        message: "Cours ajouté à vos favoris",
-                        duration: 3000
-                      });
+                    onClick={async () => {
+                      try {
+                        const newFavoriteState = !progress?.favorite;
+                        
+                        const response = await fetch("/api/courses/progress", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            courseId: course.id,
+                            favorite: newFavoriteState,
+                            lastActivityAt: new Date().toISOString()
+                          })
+                        });
+
+                        if (response.ok) {
+                          // Mettre à jour l'état local
+                          setProgress(prev => prev ? { ...prev, favorite: newFavoriteState } : null);
+                          
+                          addNotification({
+                            type: "success",
+                            title: newFavoriteState ? "Ajouté aux favoris" : "Retiré des favoris",
+                            message: newFavoriteState ? "Cours ajouté à vos favoris" : "Cours retiré de vos favoris",
+                            duration: 3000
+                          });
+
+                          // Mettre à jour le store des cours
+                          refreshCourses();
+                        } else {
+                          throw new Error("Erreur lors de la mise à jour");
+                        }
+                      } catch (error) {
+                        addNotification({
+                          type: "error",
+                          title: "Erreur",
+                          message: "Impossible de mettre à jour les favoris",
+                          duration: 5000
+                        });
+                      }
                     }}
                   >
-                    <Star className="w-4 h-4 mr-2" />
-                    Ajouter aux favoris
+                    <Star className={`w-4 h-4 mr-2 ${progress?.favorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                    {progress?.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
                   </Button>
                 </CardContent>
               </Card>

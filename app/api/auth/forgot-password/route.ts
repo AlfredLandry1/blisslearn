@@ -12,6 +12,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email requis" }, { status: 400 });
     }
 
+    // Validation basique de l'email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ 
+        error: "Format d'email invalide. Veuillez saisir une adresse email valide." 
+      }, { status: 400 });
+    }
+
     // Vérifier que l'utilisateur existe
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
@@ -24,16 +32,15 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      // Pour des raisons de sécurité, on ne révèle pas si l'email existe ou non
       return NextResponse.json({ 
-        message: "Si cet email existe dans notre base de données, vous recevrez un lien de réinitialisation." 
-      });
+        error: "Aucun compte associé à cette adresse email. Vérifiez votre saisie ou créez un nouveau compte." 
+      }, { status: 404 });
     }
 
     // Vérifier que l'utilisateur a un mot de passe (pas un utilisateur Google sans mot de passe)
     if (!user.password) {
       return NextResponse.json({ 
-        error: "Ce compte utilise la connexion Google. Utilisez le bouton 'Se connecter avec Google'." 
+        error: "Ce compte utilise la connexion Google. Utilisez le bouton 'Se connecter avec Google' pour accéder à votre compte." 
       }, { status: 400 });
     }
 
@@ -63,12 +70,13 @@ export async function POST(request: NextRequest) {
       // Supprimer le token si l'email n'a pas pu être envoyé
       await prisma.$executeRaw`DELETE FROM passwordResetToken WHERE token = ${resetToken}`;
       return NextResponse.json({ 
-        error: "Erreur lors de l'envoi de l'email. Veuillez réessayer plus tard." 
+        error: "Erreur lors de l'envoi de l'email. Veuillez réessayer plus tard ou contactez notre support." 
       }, { status: 500 });
     }
 
     return NextResponse.json({ 
-      message: "Si cet email existe dans notre base de données, vous recevrez un lien de réinitialisation." 
+      message: "Un email de réinitialisation a été envoyé à votre adresse email. Vérifiez votre boîte de réception et vos spams.",
+      success: true
     });
 
   } catch (error) {

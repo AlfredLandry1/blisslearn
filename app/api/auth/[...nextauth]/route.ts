@@ -1,4 +1,11 @@
-import NextAuth, { type NextAuthOptions, type SessionStrategy, type User, type Account, type Profile, type Session } from "next-auth";
+import NextAuth, {
+  type NextAuthOptions,
+  type SessionStrategy,
+  type User,
+  type Account,
+  type Profile,
+  type Session,
+} from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import { AdapterUser } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -17,7 +24,11 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "votre@email.com" },
+        email: {
+          label: "Email",
+          type: "email",
+          placeholder: "votre@email.com",
+        },
         password: { label: "Mot de passe", type: "password" },
       },
       async authorize(credentials) {
@@ -32,30 +43,25 @@ export const authOptions: NextAuthOptions = {
               email: true,
               name: true,
               password: true,
+              onboardingCompleted: true,
             },
           });
-          if (!user || typeof user.password !== "string" || typeof credentials.password !== "string") {
+          if (
+            !user ||
+            typeof user.password !== "string" ||
+            typeof credentials.password !== "string"
+          ) {
             return null;
           }
           const isValid = await compare(credentials.password, user.password);
           if (!isValid) {
             return null;
           }
-          let onboardingCompleted = false;
-          try {
-            const onboarding = await prisma.onboarding_responses.findUnique({
-              where: { userId: user.id },
-              select: { isCompleted: true }
-            });
-            onboardingCompleted = onboarding?.isCompleted ?? false;
-          } catch (error) {
-            onboardingCompleted = false;
-          }
           return {
             id: user.id,
             email: user.email ?? undefined,
             name: user.name ?? undefined,
-            onboardingCompleted,
+            onboardingCompleted: user.onboardingCompleted,
           };
         } catch (error) {
           return null;
@@ -75,35 +81,61 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }: any) {
       if (account?.provider === "google") {
+        try {
+          await prisma.user.update({
+            where: { email: user.email! },
+            data: { provider: "google" }
+          });
+        } catch (error) {
+          console.error("Erreur lors de la mise à jour du provider:", error);
+        }
+        
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email! },
-          include: { account: true }
+          include: { accounts: true }
         });
-        const hasGoogle = existingUser?.account.some((acc: any) => acc.provider === "google");
+        const hasGoogle = existingUser?.accounts.some((acc: any) => acc.provider === "google");
         if (existingUser && !hasGoogle) {
-          
           return true;
         }
       }
       return true;
     },
-    async jwt({ token, user, account, profile }: { token: JWT; user?: User; account?: Account | null; profile?: Profile }) {
+    async jwt({
+      token,
+      user,
+      account,
+      profile,
+    }: {
+      token: JWT;
+      user?: User;
+      account?: Account | null;
+      profile?: Profile;
+    }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
         token.picture = user.image;
-        let onboardingCompleted = false;
-        try {
-          const onboarding = await prisma.onboarding_responses.findUnique({
-            where: { userId: user.id },
-            select: { isCompleted: true }
+        
+        if (account?.provider === "google") {
+          await prisma.user.update({
+            where: { email: user.email! },
+            data: { provider: "google" }
           });
-          onboardingCompleted = onboarding?.isCompleted ?? false;
-        } catch (error) {
-          onboardingCompleted = false;
         }
-        token.onboardingCompleted = onboardingCompleted;
+        
+        // Récupérer les informations complètes de l'utilisateur
+        const userData = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { 
+            onboardingCompleted: true,
+            emailVerified: true
+          }
+        });
+        
+        token.onboardingCompleted = userData?.onboardingCompleted ?? false;
+        token.emailVerified = userData?.emailVerified ?? null;
       }
       return token;
     },
@@ -114,13 +146,25 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string;
         session.user.image = token.picture as string;
         session.user.onboardingCompleted = token.onboardingCompleted as boolean;
+        session.user.emailVerified = token.emailVerified as Date | null;
       }
       return session;
     },
   },
   events: {
-    async signIn() {},
-    async createUser() {},
+    async signIn({ user, account, profile, isNewUser }) {
+      if (account?.provider && user.email) {
+        await prisma.user.update({
+          where: { email: user.email },
+          data: { provider: account.provider }
+        });
+      }
+    },
+    async createUser({ user }) {
+      if (user.email) {
+        // Le provider sera mis à jour dans le callback signIn
+      }
+    },
     async linkAccount() {},
   },
   secret: process.env.NEXTAUTH_SECRET,

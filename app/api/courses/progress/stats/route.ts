@@ -4,67 +4,95 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user) {
-    return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
-  }
-
   try {
-    // Récupérer tous les cours suivis par l'utilisateur
-    const userCourses = await prisma.user_course_progress.findMany({
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
+    // Récupérer l'utilisateur complet pour avoir l'ID
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const timeRange = searchParams.get('timeRange') as 'week' | 'month' | 'year' || 'month';
+
+    // Récupérer toutes les progressions de cours de l'utilisateur
+    const userProgress = await prisma.user_course_progress.findMany({
       where: { userId: user.id },
-      include: { course: true },
+      include: {
+        course: true,
+        milestones: {
+          where: { isCompleted: true }
+        }
+      }
     });
 
     // Calculer les statistiques globales
-    const totalCourses = userCourses.length;
-    const completedCourses = userCourses.filter(c => c.status === "completed").length;
-    const inProgressCourses = userCourses.filter(c => c.status === "in_progress").length;
-    const favoriteCourses = userCourses.filter(c => c.favorite).length;
+    const totalCourses = userProgress.length;
+    const completedCourses = userProgress.filter(p => p.status === 'completed').length;
+    const inProgressCourses = userProgress.filter(p => p.status === 'in_progress').length;
+    const favoriteCourses = userProgress.filter(p => p.favorite).length;
 
-    // Calculer la progression globale (moyenne des progressions individuelles)
-    const totalProgress = userCourses.reduce((sum, course) => {
-      const progress = Number(course.progressPercentage) || 0;
-      return sum + progress;
-    }, 0);
-    
-    const globalProgress = totalCourses > 0 ? Math.round(totalProgress / totalCourses) : 0;
+    // Calculer la progression moyenne globale
+    const totalProgress = userProgress.reduce((sum, p) => sum + Number(p.progressPercentage || 0), 0);
+    const averageProgress = totalCourses > 0 ? Math.round(totalProgress / totalCourses) : 0;
 
-    // Calculer les statistiques par cours avec progression
-    const coursesWithProgress = userCourses.map(course => ({
-      id: course.course.id,
-      title: course.course.title,
-      status: course.status,
-      favorite: course.favorite,
-      progressPercentage: course.progressPercentage || 0,
-      startedAt: course.startedAt,
-      completedAt: course.completedAt,
-      platform: course.course.platform,
-      level: course.course.level,
-      language: course.course.language,
-      notes: course.notes,
-      timeSpent: course.timeSpent,
-      currentPosition: course.currentPosition,
-    }));
+    // Calculer le temps total passé (en minutes)
+    const totalTimeSpent = userProgress.reduce((sum, p) => sum + (p.timeSpent || 0), 0);
+
+    // Calculer le taux de completion
+    const completionRate = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
+
+    // Calculer la série de jours
+    const streakDays = await calculateStreakDays(user.id);
+
+    // Calculer la progression hebdomadaire/mensuelle
+    const weeklyProgress = await calculatePeriodProgress(user.id, 'week');
+    const monthlyProgress = await calculatePeriodProgress(user.id, 'month');
+
+    // Calculer les plateformes préférées
+    const platformStats = userProgress.reduce((acc, progress) => {
+      const platform = progress.course.platform || 'Autre';
+      acc[platform] = (acc[platform] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topPlatforms = Object.entries(platformStats)
+      .map(([platform, count]) => ({ platform, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Récupérer l'activité récente
+    const recentActivity = await getRecentActivity(user.id);
 
     return NextResponse.json({
-      globalStats: {
-        totalCourses,
-        completedCourses,
-        inProgressCourses,
-        favoriteCourses,
-        globalProgress,
-      },
-      coursesWithProgress,
+      totalCourses,
+      completedCourses,
+      inProgressCourses,
+      averageProgress,
+      totalTimeSpent,
+      favoriteCourses,
+      completionRate,
+      streakDays,
+      weeklyProgress,
+      monthlyProgress,
+      topPlatforms,
+      recentActivity
     });
+
   } catch (error) {
-    console.error("Erreur lors du calcul des statistiques:", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    console.error("Erreur lors de la récupération des statistiques:", error);
+    return NextResponse.json({ 
+      error: "Erreur serveur",
+      details: error instanceof Error ? error.message : "Erreur inconnue"
+    }, { status: 500 });
   }
 }
 

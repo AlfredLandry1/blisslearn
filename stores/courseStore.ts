@@ -1,18 +1,5 @@
 import { create } from 'zustand';
-
-export interface CourseWithProgress {
-  id: number;
-  title: string;
-  status: string;
-  favorite: boolean;
-  progressPercentage: number;
-  platform: string | null;
-  level: string | null;
-  language: string | null;
-  notes: string | null;
-  timeSpent: number | null;
-  currentPosition: string | null;
-}
+import type { Course, CourseWithProgress } from '@/types/next-auth';
 
 export interface GlobalStats {
   totalCourses: number;
@@ -321,12 +308,12 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     }
 
     if (filters.level && filters.level !== 'all') {
-      filtered = filtered.filter(course => course.level === filters.level);
+      filtered = filtered.filter(course => course.level_normalized === filters.level);
     }
 
-    if (filters.language && filters.language !== 'all') {
-      filtered = filtered.filter(course => course.language === filters.language);
-    }
+    // if (filters.language && filters.language !== 'all') {
+    //   filtered = filtered.filter(course => course.language === filters.language);
+    // }
 
     if (filters.favorite === 'true') {
       filtered = filtered.filter(course => course.favorite);

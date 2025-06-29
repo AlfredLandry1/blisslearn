@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { sendPasswordChangeConfirmationEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             email: true,
+            name: true,
           }
         }
       }
@@ -83,8 +85,20 @@ export async function POST(request: NextRequest) {
       where: { userId: resetToken.user.id }
     });
 
+    // Envoyer l'email de confirmation
+    try {
+      await sendPasswordChangeConfirmationEmail({
+        email: resetToken.user.email!,
+        name: resetToken.user.name || "Utilisateur",
+        loginUrl: `${process.env.NEXTAUTH_URL}/auth/login`
+      });
+    } catch (emailError) {
+      console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
+      // On ne fait pas échouer la réinitialisation si l'email de confirmation échoue
+    }
+
     return NextResponse.json({
-      message: "Mot de passe réinitialisé avec succès",
+      message: "Mot de passe réinitialisé avec succès. Un email de confirmation vous a été envoyé.",
       success: true
     });
 

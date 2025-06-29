@@ -83,7 +83,7 @@ export const FeaturesSection = React.memo(function FeaturesSection() {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-10">
           {features.map((feature, index) => (
             <motion.div
               key={index}
@@ -98,16 +98,16 @@ export const FeaturesSection = React.memo(function FeaturesSection() {
               whileHover={{ y: -5, transition: { duration: 0.3 } }}
             >
               <Card className="bg-gray-800/50 border-gray-700 hover:border-gray-600 transition-all duration-300 h-full backdrop-blur-sm hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6 lg:p-8">
                   <div
-                    className={`w-12 h-12 bg-gradient-to-r ${feature.color} rounded-lg flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110`}
+                    className={`w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-r ${feature.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4 lg:mb-6 transition-transform duration-300 group-hover:scale-110`}
                   >
-                    <feature.icon className="w-6 h-6 text-white" />
+                    <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-3">
+                  <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-white mb-2 sm:mb-3 lg:mb-4">
                     {feature.title}
                   </h3>
-                  <p className="text-gray-400 leading-relaxed">
+                  <p className="text-sm sm:text-base lg:text-lg text-gray-400 leading-relaxed">
                     {feature.description}
                   </p>
                 </CardContent>

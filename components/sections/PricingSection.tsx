@@ -92,7 +92,7 @@ export const PricingSection = React.memo(function PricingSection() {
           className="text-center mb-16"
         >
           <h2
-            className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6"
+            className="text-center text-3xl sm:text-4xl lg:text-5xl font-bold mb-6"
             id="section-title"
           >
             Choisissez votre plan
@@ -160,7 +160,7 @@ export const PricingSection = React.memo(function PricingSection() {
                   </div>
 
                   {/* Features */}
-                  <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-left">
+                  <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-center md:text-left">
                     {plan.features.map((feature, featureIndex) => (
                       <li
                         key={featureIndex}

@@ -67,6 +67,35 @@ export function MilestoneValidationForm({
         const data = await response.json();
         const milestone = data.milestones.find((m: any) => m.percentage === percentage);
         setExistingMilestone(milestone);
+        
+        // Récupérer le palier précédent pour utiliser ses données comme valeurs par défaut
+        const previousMilestone = data.milestones
+          .filter((m: any) => m.percentage < percentage && m.isCompleted)
+          .sort((a: any, b: any) => b.percentage - a.percentage)[0];
+        
+        // Si on a des données existantes pour ce palier, on les utilise
+        if (milestone) {
+          formik.setValues({
+            learningSummary: milestone.learningSummary || '',
+            keyConcepts: milestone.keyConcepts ? safeJsonParseArray(milestone.keyConcepts) as string[] : [],
+            challenges: milestone.challenges || '',
+            nextSteps: milestone.nextSteps || '',
+            timeSpentAtMilestone: milestone.timeSpentAtMilestone || currentTimeSpent || 0,
+            positionAtMilestone: milestone.positionAtMilestone || currentPosition || '',
+            notesAtMilestone: milestone.notesAtMilestone || ''
+          });
+        } else if (previousMilestone) {
+          // Sinon, on utilise les données du palier précédent comme valeurs par défaut
+          formik.setValues({
+            learningSummary: '',
+            keyConcepts: [],
+            challenges: '',
+            nextSteps: '',
+            timeSpentAtMilestone: currentTimeSpent || 0,
+            positionAtMilestone: currentPosition || '',
+            notesAtMilestone: previousMilestone.notesAtMilestone || '' // Récupérer les notes du palier précédent
+          });
+        }
       }
     } catch (error) {
       console.error('Erreur chargement données palier:', error);
@@ -75,18 +104,18 @@ export function MilestoneValidationForm({
     }
   };
 
-  const formik = useFormik({
+  const formik = useFormik<MilestoneValidationFormValues>({
     initialValues: {
-      learningSummary: existingMilestone?.learningSummary || '',
-      keyConcepts: existingMilestone?.keyConcepts ? safeJsonParseArray(existingMilestone.keyConcepts) : [],
-      challenges: existingMilestone?.challenges || '',
-      nextSteps: existingMilestone?.nextSteps || '',
-      timeSpentAtMilestone: existingMilestone?.timeSpentAtMilestone || currentTimeSpent || 0,
-      positionAtMilestone: existingMilestone?.positionAtMilestone || currentPosition || '',
-      notesAtMilestone: existingMilestone?.notesAtMilestone || ''
+      learningSummary: '',
+      keyConcepts: [] as string[],
+      challenges: '',
+      nextSteps: '',
+      timeSpentAtMilestone: currentTimeSpent || 0,
+      positionAtMilestone: currentPosition || '',
+      notesAtMilestone: ''
     },
     validationSchema: milestoneValidationSchema,
-    enableReinitialize: true, // Permet de réinitialiser avec les données existantes
+    enableReinitialize: false, // On désactive car on gère manuellement la réinitialisation
     onSubmit: async (values) => {
       setIsSubmitting(true);
       try {

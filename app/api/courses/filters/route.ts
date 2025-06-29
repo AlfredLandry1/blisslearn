@@ -1,48 +1,74 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Récupérer toutes les valeurs distinctes pour les filtres
-    const [platforms, levels, languages] = await Promise.all([
-      prisma.course.findMany({
-        select: { platform: true },
-        distinct: ["platform"],
-        where: { platform: { not: null } },
-        orderBy: { platform: "asc" }
-      }),
-      prisma.course.findMany({
-        select: { level: true },
-        distinct: ["level"],
-        where: { level: { not: null } },
-        orderBy: { level: "asc" }
-      }),
-      prisma.course.findMany({
-        select: { language: true },
-        distinct: ["language"],
-        where: { language: { not: null } },
-        orderBy: { language: "asc" }
-      })
+    console.log("🔄 Récupération des filtres disponibles...");
+    
+    // ✅ OPTIMISÉ : Une seule requête pour récupérer toutes les valeurs uniques
+    const [platforms, institutions, levels, languages, formats] = await Promise.all([
+      // Plateformes
+      prisma.$queryRaw`
+        SELECT DISTINCT platform 
+        FROM course 
+        WHERE platform IS NOT NULL AND platform != '' 
+        ORDER BY platform ASC
+      `,
+      
+      // Institutions
+      prisma.$queryRaw`
+        SELECT DISTINCT institution 
+        FROM course 
+        WHERE institution IS NOT NULL AND institution != '' 
+        ORDER BY institution ASC
+      `,
+      
+      // Niveaux
+      prisma.$queryRaw`
+        SELECT DISTINCT level_normalized 
+        FROM course 
+        WHERE level_normalized IS NOT NULL AND level_normalized != '' 
+        ORDER BY level_normalized ASC
+      `,
+      
+      // Langues
+      prisma.$queryRaw`
+        SELECT DISTINCT language 
+        FROM course 
+        WHERE language IS NOT NULL AND language != '' 
+        ORDER BY language ASC
+      `,
+      
+      // Formats
+      prisma.$queryRaw`
+        SELECT DISTINCT format 
+        FROM course 
+        WHERE format IS NOT NULL AND format != '' 
+        ORDER BY format ASC
+      `
     ]);
 
-    // Extraire les valeurs et filtrer les valeurs nulles
-    const filterData = {
-      platforms: platforms
-        .map(p => p.platform)
-        .filter(Boolean) as string[],
-      levels: levels
-        .map(l => l.level)
-        .filter(Boolean) as string[],
-      languages: languages
-        .map(l => l.language)
-        .filter(Boolean) as string[],
+    const result = {
+      platforms: (platforms as any[]).map(p => p.platform).filter(Boolean),
+      institutions: (institutions as any[]).map(i => i.institution).filter(Boolean),
+      levels: (levels as any[]).map(l => l.level_normalized).filter(Boolean),
+      languages: (languages as any[]).map(l => l.language).filter(Boolean),
+      formats: (formats as any[]).map(f => f.format).filter(Boolean),
     };
 
-    return NextResponse.json(filterData);
+    console.log("✅ Filtres récupérés avec succès:", {
+      platforms: result.platforms.length,
+      institutions: result.institutions.length,
+      levels: result.levels.length,
+      languages: result.languages.length,
+      formats: result.formats.length,
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('Erreur lors du chargement des filtres:', error);
+    console.error("❌ Erreur lors de la récupération des filtres:", error);
     return NextResponse.json(
-      { error: "Erreur lors du chargement des filtres" }, 
+      { error: "Erreur lors de la récupération des filtres" },
       { status: 500 }
     );
   }
