@@ -3,8 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = "mysql://root:@localhost:3306/blisslearn-db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // provider = "mysql"
+  // url      = "mysql://root:@localhost:3306/blisslearn-db"
 }
 
 model account {
@@ -20,20 +22,20 @@ model account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-  user              user    @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Account_userId_fkey")
+  user              user    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([provider, providerAccountId], map: "Account_provider_providerAccountId_key")
-  @@index([userId], map: "Account_userId_fkey")
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model session {
   id           String   @id
-  sessionToken String   @unique(map: "Session_sessionToken_key")
+  sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Session_userId_fkey")
+  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId], map: "Session_userId_fkey")
+  @@index([userId])
 }
 
 model user {
@@ -125,10 +127,10 @@ model onboarding_responses {
 
 model verificationtoken {
   identifier String
-  token      String   @unique(map: "VerificationToken_token_key")
+  token      String   @unique
   expires    DateTime
 
-  @@unique([identifier, token], map: "VerificationToken_identifier_token_key")
+  @@unique([identifier, token])
 }
 
 // Token de réinitialisation de mot de passe
