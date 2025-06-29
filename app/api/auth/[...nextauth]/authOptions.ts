@@ -83,7 +83,10 @@ export const authOptions: NextAuthOptions = {
         try {
           await prisma.user.update({
             where: { email: user.email! },
-            data: { provider: "google" }
+            data: { 
+              provider: "google",
+              emailVerified: new Date()
+            }
           });
         } catch (error) {
           console.error("Erreur lors de la mise à jour du provider:", error);
@@ -120,7 +123,10 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === "google") {
           await prisma.user.update({
             where: { email: user.email! },
-            data: { provider: "google" }
+            data: { 
+              provider: "google",
+              emailVerified: new Date()
+            }
           });
         }
         
@@ -153,9 +159,14 @@ export const authOptions: NextAuthOptions = {
   events: {
     async signIn({ user, account, profile, isNewUser }) {
       if (account?.provider && user.email) {
+        const emailVerified = account.provider === "google" ? new Date() : null;
+        
         await prisma.user.update({
           where: { email: user.email },
-          data: { provider: account.provider }
+          data: { 
+            provider: account.provider,
+            emailVerified: emailVerified
+          }
         });
       }
     },
