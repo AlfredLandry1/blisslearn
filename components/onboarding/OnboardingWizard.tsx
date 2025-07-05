@@ -77,9 +77,10 @@ export function OnboardingWizard() {
   useEffect(() => {
     if (onboardingData?.data?.onboardingData) {
       setLocalData({ ...defaultOnboardingData, ...onboardingData.data.onboardingData });
-      // Si l'onboarding est déjà complété, rediriger vers le dashboard
+      // Si l'onboarding est déjà complété, afficher un message au lieu de rediriger
       if (onboardingData.data.onboardingCompleted) {
-        router.push("/dashboard");
+        console.log("ℹ️ Onboarding déjà complété, affichage du récapitulatif");
+        // Ne pas rediriger automatiquement, laisser l'utilisateur voir le récapitulatif
       }
     }
   }, [onboardingData]);

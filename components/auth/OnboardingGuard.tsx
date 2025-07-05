@@ -2,7 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -13,12 +14,37 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
   const { data: session, status } = useSession();
   const router = useRouter();
   const hasRedirected = useRef(false);
+  const [onboardingStatus, setOnboardingStatus] = useState<{ completed: boolean; loading: boolean }>({ 
+    completed: false, 
+    loading: true 
+  });
+
+  const {
+    get: getOnboardingStatus
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setOnboardingStatus({ 
+        completed: data?.data?.onboardingCompleted || false, 
+        loading: false 
+      });
+    },
+    onError: (error) => {
+      console.error("Erreur lors de la vérification de l'onboarding:", error);
+      setOnboardingStatus({ completed: false, loading: false });
+    }
+  });
 
   // Mémoriser les valeurs pour éviter les re-renders
   const isAuthenticated = useMemo(() => status === "authenticated", [status]);
-  const isLoading = useMemo(() => status === "loading", [status]);
+  const isLoading = useMemo(() => status === "loading" || onboardingStatus.loading, [status, onboardingStatus.loading]);
   const isUnauthenticated = useMemo(() => status === "unauthenticated", [status]);
-  const hasCompletedOnboarding = useMemo(() => session?.user?.onboardingCompleted ?? false, [session?.user?.onboardingCompleted]);
+
+  // Vérifier le statut d'onboarding depuis la base de données
+  useEffect(() => {
+    if (isAuthenticated && session?.user?.email) {
+      getOnboardingStatus('/api/onboarding');
+    }
+  }, [isAuthenticated, session?.user?.email]);
 
   useEffect(() => {
     // Éviter les redirections multiples
@@ -31,10 +57,9 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
       isAuthenticated,
       isLoading,
       isUnauthenticated,
-      hasCompletedOnboarding,
+      onboardingCompleted: onboardingStatus.completed,
       requireOnboarding,
-      sessionUser: session?.user,
-      sessionOnboardingCompleted: session?.user?.onboardingCompleted
+      sessionUser: session?.user
     });
 
     if (isUnauthenticated) {
@@ -45,7 +70,7 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
 
     if (isAuthenticated && session?.user) {
       // Si requireOnboarding=true et onboarding non complété, rediriger vers onboarding
-      if (requireOnboarding && !hasCompletedOnboarding) {
+      if (requireOnboarding && !onboardingStatus.completed) {
         console.log("🔄 Redirection vers onboarding (requireOnboarding=true et onboarding non complété)");
         hasRedirected.current = true;
         router.push("/onboarding");
@@ -56,7 +81,7 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
       console.log("✅ Accès autorisé");
       return;
     }
-  }, [isAuthenticated, isLoading, isUnauthenticated, hasCompletedOnboarding, requireOnboarding, router, session?.user]);
+  }, [isAuthenticated, isLoading, isUnauthenticated, onboardingStatus.completed, requireOnboarding, router, session?.user]);
 
   if (isLoading) {
     return (

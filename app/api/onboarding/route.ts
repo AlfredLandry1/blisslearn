@@ -88,6 +88,12 @@ export async function POST(request: Request) {
       step: step || 1
     });
 
+    // Si l'onboarding est complété, forcer la mise à jour de la session
+    if (completed) {
+      console.log("🔄 Forcer la mise à jour de la session NextAuth");
+      // La session sera mise à jour au prochain refresh ou re-login
+    }
+
     return NextResponse.json({
       success: true,
       data: {
