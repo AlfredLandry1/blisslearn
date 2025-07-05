@@ -4,7 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/authOptions';
 import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -62,7 +62,7 @@ export async function PATCH(
 }
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

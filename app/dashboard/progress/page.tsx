@@ -23,6 +23,9 @@ import {
 import { useSession } from "next-auth/react";
 import { useUIStore } from "@/stores/uiStore";
 import { PageLoadingState } from "@/components/ui/loading-states";
+import { useApiClient } from "@/hooks/useApiClient";
+import { AchievementMessage, MotivationMessage, ProgressMessage } from "@/components/ui/personalized-message";
+import { usePersonalizedContent } from "@/hooks/usePersonalizedContent";
 
 interface ProgressStats {
   totalCourses: number;
@@ -49,36 +52,40 @@ export default function ProgressAnalyticsPage() {
   const loadingKey = "progress-analytics";
   const loading = isKeyLoading(loadingKey);
 
-  useEffect(() => {
-    if (authStatus !== "authenticated") return;
-    
-    setLoading(loadingKey, true);
-    setError(null);
-    
-    fetch(`/api/courses/progress/stats?timeRange=${timeRange}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || `Erreur ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        setStats(data);
-        setLoading(loadingKey, false);
-      })
-      .catch((err) => {
-        console.error("Erreur lors du chargement des statistiques:", err);
-        setError(err.message || "Impossible de charger les statistiques");
-        addNotification({
-          type: "error",
-          title: "Erreur",
-          message: err.message || "Impossible de charger les statistiques",
-          duration: 5000
-        });
-        setLoading(loadingKey, false);
+  // Hook pour rafraîchir le contenu personnalisé
+  const { refresh: refreshPersonalizedContent } = usePersonalizedContent();
+
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    data: statsData,
+    loading: statsLoading,
+    error: statsError,
+    get: fetchStats
+  } = useApiClient<ProgressStats>({
+    onSuccess: (data) => {
+      setStats(data);
+      setLoading(loadingKey, false);
+    },
+    onError: (error) => {
+      console.error('Erreur chargement statistiques:', error);
+      setError(error.message);
+      setLoading(loadingKey, false);
+      addNotification({
+        type: 'error',
+        title: 'Erreur de chargement',
+        message: 'Impossible de charger vos statistiques'
       });
-  }, [authStatus, timeRange, addNotification, setLoading, loadingKey]);
+    }
+  });
+
+  // ✅ OPTIMISÉ : Chargement des statistiques
+  useEffect(() => {
+    if (authStatus === "authenticated") {
+      setLoading(loadingKey, true);
+      setError(null);
+      fetchStats(`/api/courses/progress/stats?timeRange=${timeRange}`);
+    }
+  }, [authStatus, timeRange, fetchStats, setLoading, loadingKey]);
 
   if (authStatus === "loading" || loading) {
     return (
@@ -185,8 +192,25 @@ export default function ProgressAnalyticsPage() {
           </div>
         </div>
 
+        {/* Messages personnalisés IA */}
+        <div className="space-y-4 mb-8">
+          <AchievementMessage 
+            autoHide={true} 
+            autoHideDelay={8000}
+            className="opacity-0 animate-fade-in duration-500"
+          />
+          <MotivationMessage 
+            showRefresh={true}
+            onRefresh={refreshPersonalizedContent}
+            className="opacity-0 animate-fade-in duration-500 delay-200"
+          />
+          <ProgressMessage 
+            className="opacity-0 animate-fade-in duration-500 delay-400"
+          />
+        </div>
+
         {/* Statistiques principales */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gray-900/60 border-gray-700">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-300">Cours terminés</CardTitle>
@@ -243,7 +267,7 @@ export default function ProgressAnalyticsPage() {
         </div>
 
         {/* Graphiques et détails */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Progression hebdomadaire/mensuelle */}
           <Card className="bg-gray-900/60 border-gray-700">
             <CardHeader>
@@ -307,7 +331,7 @@ export default function ProgressAnalyticsPage() {
         </div>
 
         {/* Activité récente */}
-        <Card className="bg-gray-900/60 border-gray-700">
+        <Card className="bg-gray-900/60 border-gray-700 mt-6">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Activity className="w-5 h-5" />

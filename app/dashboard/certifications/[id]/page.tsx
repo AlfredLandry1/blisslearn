@@ -28,6 +28,7 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface Certification {
   id: string;
@@ -64,6 +65,20 @@ export default function CertificationDetailPage() {
   const loadingKey = `certification-${certificationId}`;
   const loading = isKeyLoading(loadingKey);
 
+  const {
+    get: getCertification,
+    post: postDownload,
+  } = useApiClient<any>({
+    onError: (error) => {
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Impossible de charger la certification",
+        duration: 5000
+      });
+    }
+  });
+
   useEffect(() => {
     if (certificationId && status === "authenticated") {
       fetchCertification();
@@ -73,16 +88,13 @@ export default function CertificationDetailPage() {
   const fetchCertification = async () => {
     setLoading(loadingKey, true);
     try {
-      const response = await fetch(`/api/certifications/${certificationId}`);
-      if (!response.ok) {
+      const response = await getCertification(`/api/certifications/${certificationId}`);
+      if (!response?.data) {
         throw new Error("Certification introuvable");
       }
-      const data = await response.json();
-      setCertification(data);
+      setCertification(response.data);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Erreur lors du chargement"
-      );
+      setError(err instanceof Error ? err.message : "Erreur lors du chargement");
       addNotification({
         type: "error",
         title: "Erreur",
@@ -102,16 +114,9 @@ export default function CertificationDetailPage() {
         message: "Génération du PDF en cours...",
         duration: 3000,
       });
-
-      const response = await fetch(
-        `/api/certifications/${certificationId}/download`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (response.ok) {
-        const blob = await response.blob();
+      const response = await postDownload(`/api/certifications/${certificationId}/download`);
+      if (response?.data) {
+        const blob = new Blob([response.data], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -120,7 +125,6 @@ export default function CertificationDetailPage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-
         addNotification({
           type: "success",
           title: "Téléchargement réussi",

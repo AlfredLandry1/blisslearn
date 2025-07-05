@@ -32,7 +32,7 @@ export const Particles = React.memo(function Particles() {
 
     // Create particles
     const particles: Particle[] = [];
-    const particleCount = 50;
+    const particleCount = Math.min(30, Math.floor(window.innerWidth / 50)); // Responsive particle count
 
     for (let i = 0; i < particleCount; i++) {
       particles.push({
@@ -66,21 +66,28 @@ export const Particles = React.memo(function Particles() {
         ctx.fillStyle = `rgba(59, 130, 246, ${particle.opacity})`;
         ctx.fill();
 
-        // Draw connections
-        particles.forEach((otherParticle) => {
+        // Draw connections (optimized - only check nearby particles)
+        const nearbyParticles = particles.filter((otherParticle, index) => {
+          if (particles.indexOf(particle) >= index) return false; // Avoid duplicate checks
+          const distance = Math.sqrt(
+            Math.pow(particle.x - otherParticle.x, 2) +
+            Math.pow(particle.y - otherParticle.y, 2)
+          );
+          return distance < 80; // Reduced connection distance
+        });
+
+        nearbyParticles.forEach((otherParticle) => {
           const distance = Math.sqrt(
             Math.pow(particle.x - otherParticle.x, 2) +
             Math.pow(particle.y - otherParticle.y, 2)
           );
 
-          if (distance < 100) {
-            ctx.beginPath();
-            ctx.moveTo(particle.x, particle.y);
-            ctx.lineTo(otherParticle.x, otherParticle.y);
-            ctx.strokeStyle = `rgba(59, 130, 246, ${0.1 * (1 - distance / 100)})`;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
+          ctx.beginPath();
+          ctx.moveTo(particle.x, particle.y);
+          ctx.lineTo(otherParticle.x, otherParticle.y);
+          ctx.strokeStyle = `rgba(59, 130, 246, ${0.08 * (1 - distance / 80)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
         });
       });
 

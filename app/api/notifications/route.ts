@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { prisma, withRetry } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from '@/app/api/auth/[...nextauth]/authOptions';
 
@@ -9,23 +9,35 @@ async function cleanupOldNotifications() {
   fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
 
   try {
-    await prisma.notification.deleteMany({
-      where: {
-        createdAt: {
-          lt: fifteenDaysAgo
+    await withRetry(() =>
+      prisma.notification.deleteMany({
+        where: {
+          createdAt: {
+            lt: fifteenDaysAgo
+          }
         }
-      }
-    });
+      })
+    );
   } catch (error) {
     console.error("Erreur lors du nettoyage des notifications:", error);
   }
 }
 
 // GET - Récupérer les notifications d'un utilisateur
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
+    console.log("🔍 Tentative de récupération des notifications...");
+    
     const session = await getServerSession(authOptions);
+    console.log("Session récupérée:", { 
+      hasSession: !!session, 
+      hasUser: !!session?.user, 
+      email: session?.user?.email,
+      id: session?.user?.id
+    });
+    
     if (!session?.user?.email) {
+      console.log("❌ Utilisateur non authentifié");
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
@@ -34,11 +46,14 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
+      console.log("❌ Utilisateur introuvable:", session.user.email);
       return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
     }
 
+    console.log("✅ Utilisateur trouvé:", user.email, user.id);
+
     // Nettoyer les anciennes notifications
-    await cleanupOldNotifications();
+    // await cleanupOldNotifications();
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -51,6 +66,8 @@ export async function GET(request: NextRequest) {
     if (unreadOnly) {
       where.read = false;
     }
+
+    console.log("🔍 Recherche des notifications avec filtres:", { userId: user.id, unreadOnly });
 
     // Récupérer les notifications avec pagination
     const [notifications, totalNotifications] = await Promise.all([
@@ -65,6 +82,8 @@ export async function GET(request: NextRequest) {
 
     const totalPages = Math.ceil(totalNotifications / limit);
 
+    console.log(`✅ ${notifications.length} notifications trouvées sur ${totalNotifications} total pour userId=${user.id}`);
+
     return NextResponse.json({
       notifications,
       pagination: {
@@ -77,29 +96,34 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error("Erreur lors de la récupération des notifications:", error);
+    console.error("❌ Erreur lors de la récupération des notifications:", error);
     return NextResponse.json(
-      { error: "Erreur lors de la récupération des notifications" },
+      { error: "Erreur lors de la récupération des notifications", details: error instanceof Error ? error.message : 'Erreur inconnue' },
       { status: 500 }
     );
   }
 }
 
 // POST - Créer une nouvelle notification
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    const user = await withRetry(() =>
+      prisma.user.findUnique({
+        where: { email: session.user.email! }
+      })
+    );
 
     if (!user) {
       return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
     }
+
+    // Nettoyer les anciennes notifications
+    // await cleanupOldNotifications();
 
     const body = await request.json();
     const { title, message, type, duration, actionUrl, actionText, metadata } = body;
@@ -108,21 +132,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message et type requis" }, { status: 400 });
     }
 
-    // Nettoyer les anciennes notifications
-    await cleanupOldNotifications();
-
-    const notification = await prisma.notification.create({
-      data: {
-        userId: user.id,
-        title,
-        message,
-        type,
-        duration,
-        actionUrl,
-        actionText,
-        metadata: metadata ? JSON.stringify(metadata) : null,
-      }
-    });
+    const notification = await withRetry(() =>
+      prisma.notification.create({
+        data: {
+          userId: user.id,
+          title,
+          message,
+          type,
+          duration,
+          actionUrl,
+          actionText,
+          metadata: metadata ? JSON.stringify(metadata) : null,
+        }
+      })
+    );
 
     return NextResponse.json(notification);
   } catch (error) {
@@ -135,7 +158,7 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE - Supprimer toutes les notifications d'un utilisateur
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {

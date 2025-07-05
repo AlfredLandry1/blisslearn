@@ -23,6 +23,7 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import { LoadingButton } from "@/components/ui/loading-states";
 import { ErrorDisplay } from "@/components/ui/error-display";
+import { useApiClient } from "@/hooks/useApiClient";
 
 export function VerifyEmailForm() {
   const router = useRouter();
@@ -32,9 +33,56 @@ export function VerifyEmailForm() {
   const [status, setStatus] = useState<"waiting" | "pending" | "success" | "error">("waiting");
   const [message, setMessage] = useState<string>("");
   
-  const { setLoading, clearLoading, setError, clearError } = useUIStore();
+  const { setLoading, clearLoading, setError, clearError, createPersistentNotification } = useUIStore();
   const loadingKey = "verify-email-form";
   const errorKey = "verify-email-form-error";
+
+  const {
+    loading: verifyLoading,
+    error: verifyError,
+    post: verifyEmail
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setStatus("success");
+      setMessage("Votre email a été vérifié avec succès. Vous pouvez maintenant vous connecter.");
+      createPersistentNotification({
+        type: 'success',
+        title: 'Vérification email',
+        message: 'Votre email a été vérifié avec succès'
+      });
+    },
+    onError: (error) => {
+      setStatus("error");
+      setMessage(error.message || "Erreur lors de la vérification de l'email.");
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur de vérification',
+        message: error.message
+      });
+    }
+  });
+
+  const {
+    loading: resendLoading,
+    error: resendError,
+    post: resendVerification
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setMessage("Email de vérification renvoyé avec succès ! Vérifiez votre boîte email.");
+      createPersistentNotification({
+        type: 'success',
+        title: 'Email renvoyé !',
+        message: 'Un nouvel email de vérification a été envoyé'
+      });
+    },
+    onError: (error) => {
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur d\'envoi',
+        message: error.message
+      });
+    }
+  });
 
   useEffect(() => {
     if (token) {
@@ -43,19 +91,9 @@ export function VerifyEmailForm() {
         setStatus("pending");
         setMessage("");
         try {
-          const res = await fetch("/api/auth/verify-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
+          await verifyEmail('/api/auth/verify-email', {
+            token: token
           });
-          const data = await res.json();
-          if (res.ok) {
-            setStatus("success");
-            setMessage("Votre email a été vérifié avec succès. Vous pouvez maintenant vous connecter.");
-          } else {
-            setStatus("error");
-            setMessage(data.error || "Erreur lors de la vérification de l'email.");
-          }
         } catch (e) {
           setStatus("error");
           setMessage("Erreur réseau ou serveur. Veuillez réessayer plus tard.");
@@ -69,29 +107,11 @@ export function VerifyEmailForm() {
     }
   }, [token]);
 
-  const handleResendEmail = async (values: VerifyEmailFormValues, { setSubmitting }: any) => {
-    setLoading(loadingKey, true);
-    clearError(errorKey);
-    
+  const handleResendEmail = async () => {
     try {
-      const res = await fetch("/api/auth/resend-verification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: values.email }),
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        setMessage("Email de vérification renvoyé avec succès ! Vérifiez votre boîte email.");
-      } else {
-        setError(errorKey, data.error || "Erreur lors du renvoi de l'email.");
-      }
+      await resendVerification('/api/auth/resend-verification');
     } catch (error) {
-      setError(errorKey, "Erreur réseau. Veuillez réessayer.");
-    } finally {
-      setLoading(loadingKey, false);
-      setSubmitting(false);
+      // Erreur déjà gérée par le client API
     }
   };
 

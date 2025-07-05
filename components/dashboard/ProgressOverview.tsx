@@ -16,8 +16,9 @@ import { useCourseStore } from "@/stores/courseStore";
 import { DashboardCard } from "./DashboardCard";
 import Link from "next/link";
 
-export function ProgressOverview() {
-  const { globalStats, courses } = useCourseStore();
+export function ProgressOverview({ globalStats: globalStatsProp }: { globalStats?: any } = {}) {
+  const { globalStats: globalStatsStore } = useCourseStore();
+  const globalStats = globalStatsProp || globalStatsStore;
 
   const totalProgress = globalStats?.globalProgress || 0;
   const totalCourses = globalStats?.totalCourses || 0;

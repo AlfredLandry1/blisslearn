@@ -6,14 +6,8 @@ import { Formik, Form } from "formik";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FormikFieldWithIcon, FormikField } from "@/components/ui/formik";
-import { 
-  Lock,
-  Shield,
-  Eye,
-  EyeOff,
-  CheckCircle
-} from "lucide-react";
-import { 
+import { Lock, Shield, Eye, EyeOff, CheckCircle } from "lucide-react";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -23,11 +17,12 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import { LoadingButton } from "@/components/ui/loading-states";
 import { ErrorDisplay } from "@/components/ui/error-display";
-import { 
-  setPasswordSchema, 
-  initialSetPasswordValues, 
-  type SetPasswordFormValues 
+import {
+  setPasswordSchema,
+  initialSetPasswordValues,
+  type SetPasswordFormValues,
 } from "@/lib/validation-schemas";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface SetPasswordModalProps {
   isOpen: boolean;
@@ -35,49 +30,55 @@ interface SetPasswordModalProps {
   onSuccess?: () => void;
 }
 
-export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPasswordModalProps) {
-  const { setLoading, clearLoading, addNotification } = useUIStore();
+export default function SetPasswordModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: SetPasswordModalProps) {
+  const { setLoading, clearLoading, createPersistentNotification } =
+    useUIStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const loadingKey = "set-password-modal";
   const errorKey = "set-password-modal-error";
 
-  const handleSubmit = async (values: SetPasswordFormValues, { setSubmitting, resetForm }: any) => {
-    setLoading(loadingKey, true);
-    
-    try {
-      const response = await fetch("/api/auth/set-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          password: values.password,
-        }),
+  const {
+    post: postPassword,
+  } = useApiClient<any>({
+    onError: (error) => {
+      createPersistentNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Impossible de configurer le mot de passe",
+        duration: 5000,
       });
+    },
+  });
 
-      if (response.ok) {
-        addNotification({
+  const handleSubmit = async (
+    values: SetPasswordFormValues,
+    { setSubmitting, resetForm }: any
+  ) => {
+    setLoading(loadingKey, true);
+    try {
+      const response = await postPassword("/api/auth/set-password", {
+        password: values.password,
+      });
+      if (response?.data) {
+        await createPersistentNotification({
           type: "success",
-          title: "Mot de passe configuré",
-          message: "Votre mot de passe a été configuré avec succès. Vous pouvez maintenant vous connecter sans Google.",
-          duration: 5000
+          title: "Mot de passe",
+          message: "Votre mot de passe a été modifié avec succès",
         });
-        
         resetForm();
         onSuccess?.();
         onClose();
       } else {
-        const error = await response.json();
-        throw new Error(error.error || "Erreur lors de la configuration du mot de passe");
+        throw new Error("Erreur lors de la configuration du mot de passe");
       }
     } catch (error) {
-      console.error("Erreur lors de la configuration du mot de passe:", error);
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: error instanceof Error ? error.message : "Impossible de configurer le mot de passe",
-        duration: 5000
-      });
+      // Erreur déjà gérée par le client API
     } finally {
       setLoading(loadingKey, false);
       setSubmitting(false);
@@ -103,7 +104,7 @@ export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPass
               Configuration du mot de passe
             </Badge>
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -113,7 +114,8 @@ export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPass
               Configurer votre mot de passe
             </DialogTitle>
             <DialogDescription className="text-gray-400 text-sm">
-              Configurez un mot de passe pour pouvoir vous connecter sans Google à l'avenir.
+              Configurez un mot de passe pour pouvoir vous connecter sans Google
+              à l'avenir.
             </DialogDescription>
           </motion.div>
         </DialogHeader>
@@ -151,7 +153,11 @@ export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPass
                       className="absolute right-2 top-8 text-gray-400 hover:text-white"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
 
@@ -170,15 +176,23 @@ export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPass
                       variant="ghost"
                       size="sm"
                       className="absolute right-2 top-8 text-gray-400 hover:text-white"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                     >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
 
                   {/* Exigences du mot de passe */}
                   <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                    <h4 className="text-sm font-medium text-gray-300 mb-2">Exigences du mot de passe :</h4>
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">
+                      Exigences du mot de passe :
+                    </h4>
                     <ul className="text-xs text-gray-400 space-y-1">
                       <li className="flex items-center gap-2">
                         <CheckCircle className="w-3 h-3 text-green-400" />
@@ -227,4 +241,4 @@ export default function SetPasswordModal({ isOpen, onClose, onSuccess }: SetPass
       </DialogContent>
     </Dialog>
   );
-} 
+}

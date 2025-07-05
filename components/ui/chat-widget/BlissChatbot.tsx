@@ -30,6 +30,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useUIStore } from "@/stores/uiStore";
+import { useApiClient } from "@/hooks/useApiClient";
 
 const GEMINI_API_ROUTE = "/api/chat";
 
@@ -49,7 +50,7 @@ export const BlissChatbot: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { setLoading, isKeyLoading, addNotification } = useUIStore();
+  const { setLoading, isKeyLoading, createPersistentNotification } = useUIStore();
   const loadingKey = "bliss-chatbot";
   const loading = isKeyLoading(loadingKey);
 
@@ -72,10 +73,10 @@ export const BlissChatbot: React.FC = () => {
   // Charger l'historique au montage
   useEffect(() => {
     if (open) {
-      fetch(GEMINI_API_ROUTE)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.messages) {
+      get(GEMINI_API_ROUTE)
+        .then((response: any) => {
+          const data = response?.data;
+          if (data && data.messages) {
             setMessages(
               data.messages.map((m: any) => ({
                 id: m.id,
@@ -84,90 +85,76 @@ export const BlissChatbot: React.FC = () => {
               }))
             );
           }
+        })
+        .catch((error: any) => {
+          createPersistentNotification({
+            type: 'error',
+            title: 'Erreur de chargement',
+            message: 'Impossible de charger l\'historique du chat',
+            duration: 5000
+          });
         });
     }
   }, [open]);
 
-  const handleSubmit = async (
-    e?: React.FormEvent<HTMLFormElement>,
-    retryContent?: string
-  ) => {
-    if (e) e.preventDefault();
-    const content = retryContent || input;
-    if (!content.trim()) return;
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    data: chatData,
+    loading: chatLoading,
+    error: chatError,
+    post: sendMessage,
+    delete: clearChat,
+    get
+  } = useApiClient<any>({
+    onSuccess: async () => {
+      setLoading(loadingKey, false);
+      await createPersistentNotification({
+        type: 'info',
+        title: 'Chatbot',
+        message: 'Réponse du chatbot reçue'
+      });
+    },
+    onError: (error) => {
+      console.error('Erreur chat:', error);
+      setLoading(loadingKey, false);
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur de communication',
+        message: 'Impossible de communiquer avec l\'assistant'
+      });
+    }
+  });
 
-    const userMessage: Message = { id: Date.now(), role: "user", content };
-    setMessages((prev) => [...prev, userMessage]);
+  // ✅ OPTIMISÉ : Envoi de message
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return;
+
+    const userMessage: Message = { id: Date.now(), role: 'user', content: message };
+    setMessages(prev => [...prev, userMessage]);
     setInput("");
     setLoading(loadingKey, true);
-    setError(null);
 
     try {
-      const res = await fetch(GEMINI_API_ROUTE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: content }),
+      await sendMessage(GEMINI_API_ROUTE, {
+        prompt: message
       });
-
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 1, role: "assistant", content: data.output },
-      ]);
     } catch (error) {
-      console.error("Failed to send message:", error);
-      setError("Erreur lors de l'envoi du message");
-      addNotification({
-        type: "error",
-        title: "Erreur de chat",
-        message: "Impossible d'envoyer le message",
-        duration: 5000
-      });
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === userMessage.id ? { ...msg, error: true } : msg
-        )
-      );
-    } finally {
-      setLoading(loadingKey, false);
+      // Erreur déjà gérée par le client API
     }
   };
 
-  const handleRetry = (failedMessage: Message) => {
-    // Remove the error state and the failed AI response if any
-    setMessages((prev) =>
-      prev.filter((msg) => msg.id !== failedMessage.id || !msg.error)
-    );
-    // Resubmit the content
-    handleSubmit(undefined, failedMessage.content);
-  };
-
-  const handleClearHistory = async () => {
-    setLoading(loadingKey, true);
+  // ✅ OPTIMISÉ : Effacement du chat
+  const handleClearChat = async () => {
     try {
-      const res = await fetch(GEMINI_API_ROUTE, { method: "DELETE" });
-      if (res.ok) {
-        setMessages([]);
-        addNotification({
-          type: "success",
-          title: "Historique effacé",
-          message: "L'historique de conversation a été supprimé",
-          duration: 3000
-        });
-      }
-    } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible d'effacer l'historique",
-        duration: 5000
+      await clearChat(GEMINI_API_ROUTE);
+      setMessages([]);
+      createPersistentNotification({
+        type: 'success',
+        title: 'Chat effacé',
+        message: 'L\'historique de conversation a été supprimé'
       });
-    } finally {
-      setLoading(loadingKey, false);
+    } catch (error) {
+      // Erreur déjà gérée par le client API
     }
   };
 
@@ -271,7 +258,7 @@ export const BlissChatbot: React.FC = () => {
                   {/* Effacer l'historique */}
                   <button
                     className="p-2 rounded-full hover:bg-red-900/30 text-red-400 hover:text-white transition"
-                    onClick={handleClearHistory}
+                    onClick={handleClearChat}
                     aria-label="Effacer l'historique"
                     disabled={loading || messages.length === 0}
                   >
@@ -302,65 +289,64 @@ export const BlissChatbot: React.FC = () => {
                     , note support IA vous répond !
                   </div>
                 )}
-                <ScrollArea className="h-[400px] w-full pr-4">
-                  <div className="flex flex-col gap-4">
-                    {messages.map((message) => (
+                {/* Liste des messages sans ScrollArea */}
+                <div className="flex flex-col gap-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex items-start gap-3 ${
+                        message.role === "user" ? "justify-end" : ""
+                      }`}
+                    >
+                      {message.role === "assistant" && (
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src="/favicon.svg" alt="Bliss" />
+                          <AvatarFallback>B</AvatarFallback>
+                        </Avatar>
+                      )}
                       <div
-                        key={message.id}
-                        className={`flex items-start gap-3 ${
-                          message.role === "user" ? "justify-end" : ""
+                        className={`rounded-2xl p-3 max-w-[80%] ${
+                          message.role === "user"
+                            ? "bg-blue-600 text-white rounded-br-none"
+                            : "bg-gray-700 text-gray-200 rounded-bl-none"
+                        } ${
+                          message.error
+                            ? "bg-red-500/20 border border-red-500/50"
+                            : ""
                         }`}
                       >
-                        {message.role === "assistant" && (
+                        <p className="text-sm whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                        {message.error && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-red-300">
+                            <AlertTriangle className="w-4 h-4" />
+                            <span>{error}</span>
+                            <button
+                              onClick={() => handleSendMessage(message.content)}
+                              className="flex items-center gap-1 hover:underline"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              Réessayer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {message.role === "user" &&
+                        session.data?.user?.image && (
                           <Avatar className="w-8 h-8">
-                            <AvatarImage src="/favicon.svg" alt="Bliss" />
-                            <AvatarFallback>B</AvatarFallback>
+                            <AvatarImage
+                              src={session.data.user.image}
+                              alt={session.data.user.name || "User"}
+                            />
+                            <AvatarFallback>
+                              {session.data.user.name?.charAt(0)}
+                            </AvatarFallback>
                           </Avatar>
                         )}
-                        <div
-                          className={`rounded-2xl p-3 max-w-[80%] ${
-                            message.role === "user"
-                              ? "bg-blue-600 text-white rounded-br-none"
-                              : "bg-gray-700 text-gray-200 rounded-bl-none"
-                          } ${
-                            message.error
-                              ? "bg-red-500/20 border border-red-500/50"
-                              : ""
-                          }`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap">
-                            {message.content}
-                          </p>
-                          {message.error && (
-                            <div className="mt-2 flex items-center gap-2 text-xs text-red-300">
-                              <AlertTriangle className="w-4 h-4" />
-                              <span>{error}</span>
-                              <button
-                                onClick={() => handleRetry(message)}
-                                className="flex items-center gap-1 hover:underline"
-                              >
-                                <RefreshCw className="w-3 h-3" />
-                                Réessayer
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        {message.role === "user" &&
-                          session.data?.user?.image && (
-                            <Avatar className="w-8 h-8">
-                              <AvatarImage
-                                src={session.data.user.image}
-                                alt={session.data.user.name || "User"}
-                              />
-                              <AvatarFallback>
-                                {session.data.user.name?.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                    </div>
+                  ))}
+                </div>
                 {loading && (
                   <div className="flex justify-start">
                     <div className="flex items-center gap-2 px-4 py-3 bg-gray-800/80 text-blue-200 rounded-2xl border border-blue-700/20 animate-pulse">
@@ -371,7 +357,10 @@ export const BlissChatbot: React.FC = () => {
                 )}
               </div>
               {/* Input */}
-              <form className="relative" onSubmit={handleSubmit}>
+                             <form className="relative" onSubmit={(e) => {
+                 e.preventDefault();
+                 handleSendMessage(input);
+               }}>
                 <Textarea
                   ref={inputRef}
                   value={input}
@@ -381,7 +370,7 @@ export const BlissChatbot: React.FC = () => {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      handleSubmit();
+                      handleSendMessage(input);
                     }
                   }}
                 />

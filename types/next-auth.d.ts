@@ -11,6 +11,13 @@ declare module "next-auth" {
       emailVerified?: Date | null;
       hasPassword?: boolean;
       isGoogleUser?: boolean;
+      totalCoursesStarted?: number;
+      totalCoursesCompleted?: number;
+      totalTimeSpent?: number;
+      totalCertifications?: number;
+      streakDays?: number;
+      lastActivityAt?: Date;
+      onboardingData?: any;
     };
   }
 
@@ -20,6 +27,13 @@ declare module "next-auth" {
     image?: string | null;
     hasPassword?: boolean;
     isGoogleUser?: boolean;
+    totalCoursesStarted?: number;
+    totalCoursesCompleted?: number;
+    totalTimeSpent?: number;
+    totalCertifications?: number;
+    streakDays?: number;
+    lastActivityAt?: Date;
+    onboardingData?: any;
   }
 }
 
@@ -30,6 +44,13 @@ declare module "next-auth/jwt" {
     picture?: string | null;
     hasPassword?: boolean;
     isGoogleUser?: boolean;
+    totalCoursesStarted?: number;
+    totalCoursesCompleted?: number;
+    totalTimeSpent?: number;
+    totalCertifications?: number;
+    streakDays?: number;
+    lastActivityAt?: Date;
+    onboardingData?: any;
   }
 }
 

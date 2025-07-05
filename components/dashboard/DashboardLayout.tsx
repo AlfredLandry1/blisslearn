@@ -1,10 +1,11 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardBreadcrumb } from "./DashboardBreadcrumb";
 import { DashboardHeader } from "./DashboardHeader";
 import { BlissChatbot } from "@/components/ui/chat-widget/BlissChatbot";
+import { useUIStore } from "@/stores/uiStore";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -12,6 +13,14 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { sidebarOpen, loadNotifications, persistentNotifications } = useUIStore();
+  
+  // ✅ OPTIMISÉ : Charger les notifications seulement si elles ne sont pas déjà chargées
+  useEffect(() => {
+    if (persistentNotifications.length === 0) {
+      loadNotifications();
+    }
+  }, [loadNotifications, persistentNotifications.length]);
   
   return (
     <div className="flex flex-col min-h-screen bg-gray-950">
@@ -60,8 +69,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <DashboardSidebar />
         </div>
 
-        {/* Contenu principal avec padding responsive */}
-        <main className="flex-1 w-full min-w-0">
+        {/* Contenu principal avec marge dynamique selon l'état de la sidebar */}
+        <main 
+          className={`flex-1 w-full min-w-0 transition-all duration-300 ${
+            sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'
+          }`}
+        >
           <div className="p-4 sm:p-6 lg:p-8 xl:p-10 2xl:p-12">
             <DashboardBreadcrumb />
             <div className="mt-4 sm:mt-6 lg:mt-8">

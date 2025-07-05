@@ -1,6 +1,18 @@
 import { create } from "zustand";
 import { notificationService, Notification as PersistentNotification } from "@/lib/notificationService";
 
+// ✅ UTILITAIRE : Fonction pour créer des sélecteurs stables
+const createStableSelector = <T>(selector: (state: any) => T) => {
+  return (state: any): T => {
+    try {
+      return selector(state);
+    } catch (error) {
+      console.warn('Erreur dans le sélecteur Zustand:', error);
+      return {} as T;
+    }
+  };
+};
+
 interface TempNotification {
   id: string;
   type: "success" | "error" | "info" | "warning";
@@ -45,7 +57,7 @@ interface UIState {
   clearLoading: (key: string) => void;
   isKeyLoading: (key: string) => boolean;
   
-  // Form data management
+  // Form data management - SIMPLIFIÉ
   formData: FormDataState;
   setFormData: (key: string, data: any) => void;
   updateFormData: (key: string, field: string, value: any) => void;
@@ -70,6 +82,7 @@ interface UIState {
   markNotificationAsRead: (id: string) => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   deleteAllNotifications: (readOnly?: boolean) => Promise<void>;
+  cleanupInvalidNotifications: () => Promise<void>;
   
   // Méthodes utilitaires pour les notifications persistantes
   showSuccess: (message: string, title?: string) => Promise<void>;
@@ -111,17 +124,27 @@ export const useUIStore = create<UIState>((set, get) => ({
   
   isKeyLoading: (key: string) => get().loadingStates[key] || false,
 
-  // Form data management
+  // Form data management - SIMPLIFIÉ ET STABLE
   setFormData: (key: string, data: any) => set((state) => ({
     formData: { ...state.formData, [key]: data }
   })),
   
-  updateFormData: (key: string, field: string, value: any) => set((state) => ({
-    formData: { 
-      ...state.formData, 
-      [key]: { ...state.formData[key], [field]: value }
+  updateFormData: (key: string, field: string, value: any) => set((state) => {
+    const currentFormData = state.formData[key] || {};
+    const newFormData = { ...currentFormData, [field]: value };
+    
+    // ✅ OPTIMISÉ : Éviter les mises à jour inutiles
+    if (currentFormData[field] === value) {
+      return state;
     }
-  })),
+    
+    return {
+      formData: { 
+        ...state.formData, 
+        [key]: newFormData
+      }
+    };
+  }),
   
   clearFormData: (key: string) => set((state) => {
     const newFormData = { ...state.formData };
@@ -179,25 +202,37 @@ export const useUIStore = create<UIState>((set, get) => ({
       set({ globalLoading: true });
       const response = await notificationService.getNotifications(page, limit);
       
+      // Filtrer les notifications valides et mettre à jour le store
+      const validNotifications = response.notifications.filter(n => n && n.id);
+      const newUnreadCount = validNotifications.filter(n => !n.read).length;
+      
       set({
-        persistentNotifications: response.notifications,
-        unreadCount: response.notifications.filter(n => !n.read).length,
+        persistentNotifications: validNotifications,
+        unreadCount: newUnreadCount,
         globalLoading: false
       });
+      
+      console.log(`✅ ${validNotifications.length} notifications chargées (${newUnreadCount} non lues)`);
     } catch (error) {
       console.error("Erreur lors du chargement des notifications:", error);
       set({ globalLoading: false });
+      
+      // En cas d'erreur, vider le store pour éviter les désynchronisations
+      set({
+        persistentNotifications: [],
+        unreadCount: 0
+      });
     }
   },
 
   createPersistentNotification: async (notification) => {
     try {
       const newNotification = await notificationService.createNotification(notification);
-      
       set((state) => ({
         persistentNotifications: [newNotification, ...state.persistentNotifications],
         unreadCount: state.unreadCount + 1
       }));
+      await get().loadNotifications();
     } catch (error) {
       console.error("Erreur lors de la création de la notification:", error);
     }
@@ -206,22 +241,29 @@ export const useUIStore = create<UIState>((set, get) => ({
   markNotificationAsRead: async (id) => {
     try {
       const updatedNotification = await notificationService.markAsRead(id);
-      
       set((state) => ({
         persistentNotifications: state.persistentNotifications.map(n => 
           n.id === id ? updatedNotification : n
         ),
         unreadCount: Math.max(0, state.unreadCount - 1)
       }));
+      await get().loadNotifications();
     } catch (error) {
       console.error("Erreur lors de la mise à jour de la notification:", error);
+      // Si la notification n'existe pas, la supprimer du store
+      if (error instanceof Error && error.message.includes('Notification non trouvée')) {
+        set((state) => ({
+          persistentNotifications: state.persistentNotifications.filter(n => n.id !== id),
+          unreadCount: Math.max(0, state.unreadCount - 1)
+        }));
+        await get().loadNotifications();
+      }
     }
   },
 
   deleteNotification: async (id) => {
     try {
       await notificationService.deleteNotification(id);
-      
       set((state) => {
         const notification = state.persistentNotifications.find(n => n.id === id);
         return {
@@ -231,8 +273,23 @@ export const useUIStore = create<UIState>((set, get) => ({
             : state.unreadCount
         };
       });
+      await get().loadNotifications();
     } catch (error) {
       console.error("Erreur lors de la suppression de la notification:", error);
+      // Si la notification n'existe pas, la supprimer du store et recharger
+      if (error instanceof Error && error.message.includes('404')) {
+        set((state) => ({
+          persistentNotifications: state.persistentNotifications.filter(n => n.id !== id),
+          unreadCount: Math.max(0, state.unreadCount - 1)
+        }));
+        await get().loadNotifications();
+        // Notification temporaire utilisateur
+        get().addNotification({
+          type: "error",
+          message: "La notification était déjà supprimée ou inaccessible.",
+          duration: 5000
+        });
+      }
     }
   },
 
@@ -252,6 +309,27 @@ export const useUIStore = create<UIState>((set, get) => ({
       }
     } catch (error) {
       console.error("Erreur lors de la suppression des notifications:", error);
+    }
+  },
+
+  // Fonction pour nettoyer les notifications invalides
+  cleanupInvalidNotifications: async () => {
+    try {
+      console.log("🧹 Nettoyage des notifications invalides...");
+      
+      // Recharger les notifications depuis la base de données
+      const response = await notificationService.getNotifications(1, 100);
+      const validNotifications = response.notifications.filter(n => n && n.id);
+      const newUnreadCount = validNotifications.filter(n => !n.read).length;
+      
+      set({
+        persistentNotifications: validNotifications,
+        unreadCount: newUnreadCount
+      });
+      
+      console.log(`✅ Nettoyage terminé: ${validNotifications.length} notifications valides (${newUnreadCount} non lues)`);
+    } catch (error) {
+      console.error("Erreur lors du nettoyage:", error);
     }
   },
 
@@ -308,5 +386,5 @@ export const useUIStore = create<UIState>((set, get) => ({
   modals: {},
   openModal: (key) => set((state) => ({ modals: { ...state.modals, [key]: true } })),
   closeModal: (key) => set((state) => ({ modals: { ...state.modals, [key]: false } })),
-  isModalOpen: (key: string) => get().modals[key] || false,
+  isModalOpen: (key) => get().modals[key] || false,
 })); 

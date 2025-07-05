@@ -456,6 +456,15 @@ export async function sendVerificationEmail(data: VerificationEmailData) {
   const { email, name, token } = data;
   const verifyUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${token}`;
 
+  console.log("📧 sendVerificationEmail - Détails:", {
+    email,
+    name,
+    token: token.substring(0, 10) + "...",
+    verifyUrl,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    RESEND_API_KEY: process.env.RESEND_API_KEY ? "Configurée" : "Manquante"
+  });
+
   try {
     const result = await resend.emails.send({
       from: 'onboarding@resend.dev',

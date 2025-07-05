@@ -8,8 +8,13 @@ import { ArrowLeft, ArrowRight, BookOpen } from "lucide-react";
 import { StepProps, DOMAINS_OF_INTEREST } from "../types";
 
 export function OnboardingStep2({ data, updateData, onNext, onPrev, isLoading }: StepProps) {
+  // Protection contre data null/undefined
+  if (!data) {
+    return <div>Chargement...</div>;
+  }
+
   const handleDomainChange = (domain: string, checked: boolean) => {
-    let newDomains = [...data.domainsOfInterest];
+    let newDomains = [...(data.domainsOfInterest || [])];
     
     if (checked) {
       newDomains.push(domain);
@@ -20,7 +25,7 @@ export function OnboardingStep2({ data, updateData, onNext, onPrev, isLoading }:
     updateData({ domainsOfInterest: newDomains });
   };
 
-  const isStepValid = data.domainsOfInterest.length > 0;
+  const isStepValid = (data.domainsOfInterest || []).length > 0;
 
   return (
     <motion.div
@@ -50,7 +55,7 @@ export function OnboardingStep2({ data, updateData, onNext, onPrev, isLoading }:
           >
             <Checkbox
               id={domain}
-              checked={data.domainsOfInterest.includes(domain)}
+              checked={(data.domainsOfInterest || []).includes(domain)}
               onCheckedChange={(checked) => handleDomainChange(domain, checked as boolean)}
               className="mt-1"
             />
@@ -61,7 +66,7 @@ export function OnboardingStep2({ data, updateData, onNext, onPrev, isLoading }:
         ))}
       </div>
 
-      {data.domainsOfInterest.length > 0 && (
+      {(data.domainsOfInterest || []).length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -69,7 +74,7 @@ export function OnboardingStep2({ data, updateData, onNext, onPrev, isLoading }:
         >
           <p className="text-green-400 text-sm font-medium mb-2">Domaines sélectionnés :</p>
           <div className="flex flex-wrap gap-2">
-            {data.domainsOfInterest.map((domain, index) => (
+            {(data.domainsOfInterest || []).map((domain, index) => (
               <span
                 key={index}
                 className="bg-green-500/20 text-green-300 text-xs px-2 py-1 rounded"

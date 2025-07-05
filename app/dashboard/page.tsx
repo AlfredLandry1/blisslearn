@@ -1,447 +1,288 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import * as loader from "@/components/loading";
-import { OnboardingGuard } from "@/components/auth/OnboardingGuard";
+import React, { useState, useEffect } from "react";
+import { useSession, signOut, signIn } from "next-auth/react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { UserInfoCard } from "@/components/dashboard/UserInfoCard";
-import { ProgressOverview } from "@/components/dashboard/ProgressOverview";
-import { RecentActivity } from "@/components/dashboard/RecentActivity";
-import { QuickStats } from "@/components/dashboard/QuickStats";
-import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
+import { QuickStats } from "@/components/dashboard/QuickStats";
+import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { DailySummary } from "@/components/dashboard/DailySummary";
-import { useUserStore } from "@/stores/userStore";
-import { useCourseStore } from "@/stores/courseStore";
+import { ProgressOverview } from "@/components/dashboard/ProgressOverview";
+import { PredictionCard } from "@/components/dashboard/PredictionCard";
+import { OnboardingGuard } from "@/components/auth/OnboardingGuard";
 import { useUIStore } from "@/stores/uiStore";
+import { useApiClient } from "@/hooks/useApiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Bell, 
+  TrendingUp, 
   BookOpen, 
   Target, 
-  TrendingUp, 
+  Trophy, 
   Calendar,
-  Clock,
-  Star,
-  Award,
-  Play,
-  CheckCircle,
-  Plus,
-  ArrowRight,
-  RefreshCw,
-  Home,
   BarChart3,
-  Activity,
+  Sparkles,
+  ArrowRight,
+  Clock,
+  CheckCircle,
+  PlayCircle,
+  Star,
+  RefreshCw
 } from "lucide-react";
-import Link from "next/link";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AchievementMessage, MotivationMessage, ProgressMessage } from "@/components/ui/personalized-message";
+import { usePersonalizedContent } from "@/hooks/usePersonalizedContent";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  const firstName = session?.user?.name?.split(" ")[0] || "";
-  const { refreshCourses, globalStats, courses } = useCourseStore();
-  const { persistentNotifications, unreadCount, loadNotifications } = useUIStore();
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { unreadCount, createPersistentNotification } = useUIStore();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Charger les données au montage du composant
+  // Hook pour rafraîchir le contenu personnalisé
+  const { refresh: refreshPersonalizedContent } = usePersonalizedContent();
+
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    get: fetchDashboardData
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setDashboardData(data);
+      setIsLoading(false);
+    },
+    onError: (error) => {
+      console.error('Erreur chargement dashboard:', error);
+      setIsLoading(false);
+    }
+  });
+
+  const {
+    post: resetOnboarding
+  } = useApiClient<any>({
+    onSuccess: () => {
+      createPersistentNotification({
+        type: "success",
+        title: "Onboarding réinitialisé",
+        message: "Vous pouvez maintenant refaire l'onboarding",
+        duration: 3000,
+      });
+      // Recharger la page pour forcer la redirection
+      window.location.reload();
+    },
+    onError: (error) => {
+      createPersistentNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Erreur lors de la réinitialisation",
+        duration: 5000,
+      });
+    }
+  });
+
+  const handleResetOnboarding = async () => {
+    await resetOnboarding('/api/auth/reset-onboarding', {});
+    // Forcer la déconnexion/reconnexion pour mettre à jour la session
+    await signOut({ redirect: false });
+    await signIn();
+  };
+
   useEffect(() => {
-    const loadDashboardData = async () => {
-      if (status === "authenticated") {
-        setIsLoading(true);
-        try {
-          await Promise.all([
-            refreshCourses(),
-            loadNotifications(1, 5) // Charger les 5 dernières notifications
-          ]);
-        } catch (error) {
-          console.error("Erreur lors du chargement des données:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
+    if (status === "authenticated") {
+      fetchDashboardData('/api/dashboard');
+    }
+  }, [status]);
 
-    loadDashboardData();
-  }, [status, refreshCourses, loadNotifications]);
-
-  if (status === "loading" || isLoading) {
-    return <loader.PageSpinner />;
+  if (status === "loading") {
+    return <div className="flex items-center justify-center min-h-screen">Chargement...</div>;
   }
-
-  // Calculer les statistiques pour les cartes d'action rapide
-  const recentCourses = courses?.slice(0, 3) || [];
-  const today = new Date();
-  const todayFormatted = format(today, 'EEEE d MMMM', { locale: fr });
 
   return (
     <OnboardingGuard requireOnboarding={false}>
       <DashboardLayout>
-        <div className="space-y-6 lg:space-y-8">
-          {/* En-tête avec salutation et date */}
+        <div className="space-y-6">
+          {/* Messages personnalisés IA */}
+          <div className="space-y-4">
+            <AchievementMessage 
+              autoHide={true} 
+              autoHideDelay={8000}
+              className="opacity-0 animate-fade-in duration-500"
+            />
+            <MotivationMessage 
+              showRefresh={true}
+              onRefresh={refreshPersonalizedContent}
+              className="opacity-0 animate-fade-in duration-500 delay-200"
+            />
+          </div>
+
+          {/* En-tête avec salutation */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
-                Bonjour{firstName && <span>, {firstName}</span>} 
-                <span className="text-2xl sm:text-3xl">👋</span>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
+                Bonjour, {session?.user?.name || "Apprenant"} 👋
               </h1>
-              <p className="text-gray-400 mt-1">
-                {todayFormatted} • Prêt à apprendre aujourd'hui ?
+              <p className="text-gray-400 text-sm sm:text-base lg:text-lg mt-1">
+                Voici un aperçu de votre progression aujourd'hui
               </p>
             </div>
             
-            {/* Notifications rapides */}
             <div className="flex items-center gap-3">
-              <Link href="/dashboard/notifications">
-                <Button variant="outline" size="sm" className="relative">
-                  <Bell className="w-4 h-4 mr-2" />
-                  Notifications
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs bg-red-500">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </Badge>
-                  )}
-                </Button>
-              </Link>
-              
+              {unreadCount > 0 && (
+                <Badge variant="secondary" className="bg-blue-500 text-white">
+                  {unreadCount} notification{unreadCount > 1 ? 's' : ''}
+                </Badge>
+              )}
+              <Button variant="outline" size="sm" className="hidden sm:flex">
+                <Calendar className="w-4 h-4 mr-2" />
+                Voir le calendrier
+              </Button>
               <Button 
                 variant="outline" 
-                size="sm"
-                onClick={() => {
-                  refreshCourses();
-                  loadNotifications(1, 5);
-                }}
-                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                size="sm" 
+                onClick={handleResetOnboarding}
+                className="bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reset Onboarding
               </Button>
             </div>
           </div>
 
-          {/* Onglets principaux */}
+          {/* Onglets de navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="relative">
-              {/* Fond avec effet de glassmorphism */}
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-900/40 via-gray-800/60 to-gray-900/40 rounded-2xl border border-gray-700/50 backdrop-blur-xl shadow-2xl" />
-              
-              {/* Barre d'onglets stylée */}
-              <TabsList className="relative bg-transparent border-0 w-full justify-start p-3 gap-1 sm:gap-2 rounded-2xl">
-                <TabsTrigger 
-                  value="overview" 
-                  className="relative flex-1 sm:flex-none data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600/80 data-[state=active]:to-blue-500/80 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 data-[state=active]:border-blue-400/30 data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:text-gray-300 data-[state=inactive]:hover:bg-gray-700/30 transition-all duration-300 ease-out rounded-xl px-3 py-2 sm:px-6 sm:py-3 border border-transparent backdrop-blur-sm group"
-                >
-                  <div className="flex items-center justify-center sm:justify-start gap-2">
-                    <Home className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:scale-110" />
-                    <span className="hidden sm:inline font-medium text-sm">Vue d'ensemble</span>
-                    <span className="sm:hidden text-xs font-medium">Vue</span>
-                  </div>
-                  {/* Indicateur actif */}
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-600/20 to-blue-500/20 opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300" />
-                </TabsTrigger>
-                
-                <TabsTrigger 
-                  value="stats" 
-                  className="relative flex-1 sm:flex-none data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600/80 data-[state=active]:to-purple-500/80 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 data-[state=active]:border-purple-400/30 data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:text-gray-300 data-[state=inactive]:hover:bg-gray-700/30 transition-all duration-300 ease-out rounded-xl px-3 py-2 sm:px-6 sm:py-3 border border-transparent backdrop-blur-sm group"
-                >
-                  <div className="flex items-center justify-center sm:justify-start gap-2">
-                    <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:scale-110" />
-                    <span className="hidden sm:inline font-medium text-sm">Statistiques</span>
-                    <span className="sm:hidden text-xs font-medium">Stats</span>
-                  </div>
-                  {/* Indicateur actif */}
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-600/20 to-purple-500/20 opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300" />
-                </TabsTrigger>
-                
-                <TabsTrigger 
-                  value="activity" 
-                  className="relative flex-1 sm:flex-none data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600/80 data-[state=active]:to-green-500/80 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/25 data-[state=active]:border-green-400/30 data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:text-gray-300 data-[state=inactive]:hover:bg-gray-700/30 transition-all duration-300 ease-out rounded-xl px-3 py-2 sm:px-6 sm:py-3 border border-transparent backdrop-blur-sm group"
-                >
-                  <div className="flex items-center justify-center sm:justify-start gap-2">
-                    <Activity className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:scale-110" />
-                    <span className="hidden sm:inline font-medium text-sm">Activité</span>
-                    <span className="sm:hidden text-xs font-medium">Act</span>
-                  </div>
-                  {/* Indicateur actif */}
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-600/20 to-green-500/20 opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300" />
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            {/* Vue d'ensemble */}
-            <TabsContent value="overview" className="space-y-6 mt-6">
-              {/* Statistiques rapides */}
-              <QuickStats />
-
-              {/* Contenu principal */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Colonne principale */}
-                <div className="lg:col-span-2 space-y-6">
-                  <DailySummary />
-                  
-                  {/* Cours récents */}
-                  <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-white flex items-center gap-2">
-                          <BookOpen className="w-5 h-5 text-blue-400" />
-                          Cours récents
-                        </CardTitle>
-                        <Link href="/dashboard/my-courses">
-                          <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300">
-                            Voir tout
-                            <ArrowRight className="w-4 h-4 ml-1" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {recentCourses.length === 0 ? (
-                        <div className="text-center py-8">
-                          <BookOpen className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                          <p className="text-gray-400 mb-4">Aucun cours récent</p>
-                          <Link href="/dashboard/explorer">
-                            <Button className="bg-blue-600 hover:bg-blue-700">
-                              <Plus className="w-4 h-4 mr-2" />
-                              Découvrir des cours
-                            </Button>
-                          </Link>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {recentCourses.map((course) => (
-                            <div
-                              key={course.id}
-                              className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/40 border border-gray-700/30 hover:border-gray-600/50 transition-colors"
-                            >
-                              <div className="flex-shrink-0">
-                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                  <BookOpen className="w-5 h-5 text-white" />
-                                </div>
-                              </div>
-                              
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-white font-medium truncate">
-                                  {course.title}
-                                </h4>
-                                <p className="text-gray-400 text-sm truncate">
-                                  {course.description}
-                                </p>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs ${
-                                    course.progressPercentage === 100 
-                                      ? 'border-green-600 text-green-400' 
-                                      : course.progressPercentage > 0 
-                                        ? 'border-blue-600 text-blue-400'
-                                        : 'border-gray-600 text-gray-400'
-                                  }`}
-                                >
-                                  {course.progressPercentage}%
-                                </Badge>
-                                
-                                <Link href={`/dashboard/my-courses/${course.id}`}>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                    {course.progressPercentage === 100 ? (
-                                      <CheckCircle className="w-4 h-4 text-green-400" />
-                                    ) : (
-                                      <Play className="w-4 h-4 text-blue-400" />
-                                    )}
-                                  </Button>
-                                </Link>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <ProgressOverview />
-                </div>
-
-                {/* Sidebar */}
-                <div className="space-y-6">
-                  <UserInfoCard />
-                  
-                  {/* Notifications récentes */}
-                  <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-white flex items-center gap-2">
-                          <Bell className="w-5 h-5 text-blue-400" />
-                          Notifications récentes
-                        </CardTitle>
-                        <Link href="/dashboard/notifications">
-                          <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300">
-                            <ArrowRight className="w-4 h-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {persistentNotifications.length === 0 ? (
-                        <div className="text-center py-4">
-                          <Bell className="w-8 h-8 text-gray-500 mx-auto mb-2" />
-                          <p className="text-gray-400 text-sm">Aucune notification</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {persistentNotifications.slice(0, 3).map((notification) => (
-                            <div
-                              key={notification.id}
-                              className={`p-3 rounded-lg border transition-colors ${
-                                notification.read 
-                                  ? 'bg-gray-800/30 border-gray-700/30' 
-                                  : 'bg-blue-500/10 border-blue-500/30'
-                              }`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                                  notification.type === 'success' ? 'bg-green-400' :
-                                  notification.type === 'error' ? 'bg-red-400' :
-                                  notification.type === 'warning' ? 'bg-orange-400' :
-                                  'bg-blue-400'
-                                }`} />
-                                
-                                <div className="flex-1 min-w-0">
-                                  {notification.title && (
-                                    <h4 className="text-white text-sm font-medium truncate">
-                                      {notification.title}
-                                    </h4>
-                                  )}
-                                  <p className="text-gray-400 text-xs truncate">
-                                    {notification.message}
-                                  </p>
-                                  <p className="text-gray-500 text-xs mt-1">
-                                    {format(new Date(notification.createdAt), 'dd/MM à HH:mm', { locale: fr })}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <UpcomingEvents />
-                </div>
+            <TabsList className="mb-6">
+              <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+              <TabsTrigger value="stats">Statistiques</TabsTrigger>
+              <TabsTrigger value="activity">Activité</TabsTrigger>
+            </TabsList>
+            <TabsContent value="overview">
+              <div className="space-y-6">
+                <QuickStats />
+                <ProgressOverview />
               </div>
-
-              {/* Actions rapides */}
-              <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-white">Actions rapides</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <Link href="/dashboard/explorer">
-                      <Button variant="outline" className="w-full h-16 flex-col gap-2 border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <BookOpen className="w-5 h-5" />
-                        <span className="text-xs">Explorer</span>
-                      </Button>
-                    </Link>
-                    
-                    <Link href="/dashboard/my-courses">
-                      <Button variant="outline" className="w-full h-16 flex-col gap-2 border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <Target className="w-5 h-5" />
-                        <span className="text-xs">Mes cours</span>
-                      </Button>
-                    </Link>
-                    
-                    <Link href="/dashboard/certifications">
-                      <Button variant="outline" className="w-full h-16 flex-col gap-2 border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <Award className="w-5 h-5" />
-                        <span className="text-xs">Certifications</span>
-                      </Button>
-                    </Link>
-                    
-                    <Link href="/dashboard/progress">
-                      <Button variant="outline" className="w-full h-16 flex-col gap-2 border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <TrendingUp className="w-5 h-5" />
-                        <span className="text-xs">Progression</span>
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
-
-            {/* Statistiques détaillées */}
-            <TabsContent value="stats" className="mt-6">
-              <DashboardStats />
+            <TabsContent value="stats">
+              <div className="space-y-6">
+                <DashboardStats />
+              </div>
             </TabsContent>
-
-            {/* Activité récente */}
-            <TabsContent value="activity" className="mt-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <RecentActivity />
-                </div>
-                <div>
-                  <UpcomingEvents />
-                </div>
+            <TabsContent value="activity">
+              <div className="space-y-6">
+                <RecentActivity />
+                <UpcomingEvents />
+                <DailySummary />
+                <PredictionCard />
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* Section des cours en cours */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-blue-400" />
+                Cours en cours
+              </h2>
+              <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300">
+                Voir tous mes cours
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+            
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Card key={index} className="bg-gray-800/50 border-gray-700 animate-pulse">
+                    <CardContent className="p-4">
+                      <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gray-700 rounded w-1/2 mb-4"></div>
+                      <div className="h-2 bg-gray-700 rounded w-full mb-2"></div>
+                      <div className="h-2 bg-gray-700 rounded w-2/3"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : dashboardData?.currentCourses?.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dashboardData.currentCourses.slice(0, 3).map((course: any) => (
+                  <Card key={course.id} className="bg-gray-800/50 border-gray-700 hover:border-gray-600 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white text-sm line-clamp-2">
+                            {course.title}
+                          </h3>
+                          <p className="text-gray-400 text-xs mt-1">
+                            {course.platform}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-400">Progression</span>
+                          <span className="text-white font-medium">{course.progressPercentage}%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${course.progressPercentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <Clock className="w-3 h-3" />
+                          <span>{course.duration || "N/A"}</span>
+                        </div>
+                        <Button size="sm" className="text-xs h-7 px-2">
+                          <PlayCircle className="w-3 h-3 mr-1" />
+                          Continuer
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="bg-gray-800/50 border-gray-700">
+                <CardContent className="p-8 text-center">
+                  <BookOpen className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                  <h3 className="text-white font-semibold mb-2">Aucun cours en cours</h3>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Commencez par explorer nos cours recommandés
+                  </p>
+                  <Button>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Découvrir des cours
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Section des recommandations */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-400" />
+                Recommandations personnalisées
+              </h2>
+              <Button variant="ghost" size="sm" className="text-yellow-400 hover:text-yellow-300">
+                Voir toutes les recommandations
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+            
+            <ProgressMessage 
+              className="opacity-0 animate-fade-in duration-500"
+            />
+          </div>
         </div>
       </DashboardLayout>
     </OnboardingGuard>
-  );
-}
-
-// Composant de debug temporaire
-function UserStoreDebug() {
-  const { 
-    session, 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    getOnboardingStatus,
-    getUserName,
-    getUserEmail
-  } = useUserStore();
-
-  return (
-    <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4 mb-4">
-      <h3 className="text-white text-sm font-bold mb-2">Debug - Store Utilisateur</h3>
-      <div className="space-y-1 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Authentifié:</span>
-          <span className={isAuthenticated ? "text-green-400" : "text-red-400"}>
-            {isAuthenticated ? "Oui" : "Non"}
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Chargement:</span>
-          <span className={isLoading ? "text-yellow-400" : "text-green-400"}>
-            {isLoading ? "En cours" : "Terminé"}
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Onboarding:</span>
-          <span className={getOnboardingStatus() ? "text-green-400" : "text-yellow-400"}>
-            {getOnboardingStatus() ? "Complété" : "À faire"}
-          </span>
-        </div>
-        
-        <div className="text-gray-400">
-          <div>Nom: {getUserName()}</div>
-          <div>Email: {getUserEmail()}</div>
-        </div>
-      </div>
-    </div>
   );
 }

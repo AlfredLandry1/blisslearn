@@ -21,10 +21,17 @@ import { useUIStore } from "@/stores/uiStore";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useSession } from "next-auth/react";
+import { useMotivationContent, useNextStepSuggestion } from "@/hooks/usePersonalizedContent";
 
 export function DailySummary() {
   const { courses, globalStats } = useCourseStore();
   const { unreadCount } = useUIStore();
+  const { data: session } = useSession();
+  
+  // Utilisation des hooks IA personnalisés
+  const { motivationQuote, dailyGoal, loading: motivationLoading } = useMotivationContent();
+  const { nextStepSuggestion, loading: suggestionLoading } = useNextStepSuggestion();
 
   const today = new Date();
   const todayFormatted = format(today, 'EEEE d MMMM', { locale: fr });
@@ -34,17 +41,6 @@ export function DailySummary() {
     if (timeOfDay < 12) return "Bonjour";
     if (timeOfDay < 18) return "Bon après-midi";
     return "Bonsoir";
-  };
-
-  const getMotivationalMessage = () => {
-    const messages = [
-      "Chaque petit pas compte vers votre objectif !",
-      "L'apprentissage est un voyage, pas une destination.",
-      "Vous progressez chaque jour, continuez !",
-      "La persévérance est la clé du succès.",
-      "Votre avenir se construit aujourd'hui.",
-    ];
-    return messages[Math.floor(Math.random() * messages.length)];
   };
 
   // Suggestions personnalisées
@@ -158,117 +154,98 @@ export function DailySummary() {
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* Message motivant */}
-        <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+        {/* Section motivation personnalisée */}
+        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg p-4 border border-blue-500/20">
           <div className="flex items-start gap-3">
-            <Lightbulb className="w-5 h-5 text-yellow-400 mt-0.5" />
-            <div>
-              <p className="text-white text-sm font-medium mb-1">
-                💡 Inspiration du jour
-              </p>
-              <p className="text-gray-300 text-sm">
-                {getMotivationalMessage()}
-              </p>
+            <Lightbulb className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              {motivationLoading ? (
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-700 rounded mb-2"></div>
+                  <div className="h-3 bg-gray-700 rounded w-3/4"></div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-white font-medium mb-1">
+                    {motivationQuote}
+                  </p>
+                  <p className="text-blue-300 text-sm">
+                    {dailyGoal}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         {/* Statistiques du jour */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="text-center p-3 rounded-lg bg-gray-800/40 border border-gray-700/30">
-            <Clock className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-            <div className="text-lg font-bold text-white">
-              {dailyStats.timeSpent}h
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center">
+            <div className="flex items-center justify-center w-10 h-10 bg-blue-500/20 rounded-lg mx-auto mb-2">
+              <Clock className="w-5 h-5 text-blue-400" />
             </div>
-            <div className="text-gray-400 text-xs">Temps d'apprentissage</div>
+            <p className="text-white font-semibold text-lg">{dailyStats.timeSpent}h</p>
+            <p className="text-gray-400 text-xs">Temps passé</p>
           </div>
           
-          <div className="text-center p-3 rounded-lg bg-gray-800/40 border border-gray-700/30">
-            <CheckCircle className="w-6 h-6 text-green-400 mx-auto mb-2" />
-            <div className="text-lg font-bold text-white">
-              {dailyStats.lessonsCompleted}
+          <div className="text-center">
+            <div className="flex items-center justify-center w-10 h-10 bg-green-500/20 rounded-lg mx-auto mb-2">
+              <CheckCircle className="w-5 h-5 text-green-400" />
             </div>
-            <div className="text-gray-400 text-xs">Leçons terminées</div>
+            <p className="text-white font-semibold text-lg">{dailyStats.lessonsCompleted}</p>
+            <p className="text-gray-400 text-xs">Leçons terminées</p>
           </div>
           
-          <div className="text-center p-3 rounded-lg bg-gray-800/40 border border-gray-700/30">
-            <TrendingUp className="w-6 h-6 text-purple-400 mx-auto mb-2" />
-            <div className="text-lg font-bold text-white">
-              {dailyStats.streak}j
+          <div className="text-center">
+            <div className="flex items-center justify-center w-10 h-10 bg-orange-500/20 rounded-lg mx-auto mb-2">
+              <TrendingUp className="w-5 h-5 text-orange-400" />
             </div>
-            <div className="text-gray-400 text-xs">Série en cours</div>
+            <p className="text-white font-semibold text-lg">{dailyStats.streak}</p>
+            <p className="text-gray-400 text-xs">Jours de suite</p>
           </div>
         </div>
 
-        {/* Suggestions personnalisées */}
-        <div>
-          <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-            <Target className="w-4 h-4 text-blue-400" />
-            Suggestions pour aujourd'hui
-          </h4>
-          
-          <div className="space-y-3">
-            {suggestions.length === 0 ? (
-              <div className="text-center py-6">
-                <BookOpen className="w-8 h-8 text-gray-500 mx-auto mb-2" />
-                <p className="text-gray-400 text-sm">Aucune suggestion pour le moment</p>
+        {/* Prochaine étape suggérée */}
+        {!suggestionLoading && nextStepSuggestion && (
+          <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-lg p-4 border border-green-500/20">
+            <div className="flex items-start gap-3">
+              <Target className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-white font-medium mb-1">Prochaine étape suggérée</p>
+                <p className="text-green-300 text-sm">{nextStepSuggestion}</p>
               </div>
-            ) : (
-              suggestions.map((suggestion, index) => {
-                const IconComponent = suggestion.icon;
-                const isHighPriority = suggestion.priority === "high";
-                
-                return (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg border transition-all duration-200 hover:border-gray-600/50 group ${
-                      isHighPriority 
-                        ? 'bg-red-500/5 border-red-500/30' 
-                        : 'bg-gray-800/40 border-gray-700/30'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
+            </div>
+          </div>
+        )}
+
+        {/* Suggestions d'actions */}
+        {suggestions.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-white font-semibold text-sm">Actions recommandées</h3>
+            <div className="space-y-2">
+              {suggestions.map((suggestion, index) => (
+                <Link key={index} href={suggestion.link}>
+                  <div className={`p-3 rounded-lg border transition-all duration-200 hover:scale-[1.02] ${suggestion.bgColor} border-gray-600/50 hover:border-gray-500/70`}>
+                    <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${suggestion.bgColor}`}>
-                        <IconComponent className={`w-4 h-4 ${suggestion.color}`} />
+                        <suggestion.icon className={`w-4 h-4 ${suggestion.color}`} />
                       </div>
-                      
                       <div className="flex-1 min-w-0">
-                        <h5 className={`text-sm font-medium truncate ${
-                          isHighPriority ? 'text-red-300' : 'text-white'
-                        }`}>
+                        <p className="text-white font-medium text-sm truncate">
                           {suggestion.title}
-                        </h5>
+                        </p>
                         <p className="text-gray-400 text-xs truncate">
                           {suggestion.description}
                         </p>
                       </div>
-                      
-                      <Link href={suggestion.link}>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </Link>
+                      <ArrowRight className="w-4 h-4 text-gray-400" />
                     </div>
                   </div>
-                );
-              })
-            )}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* Action rapide */}
-        <div className="pt-4 border-t border-gray-700/50">
-          <Link href="/dashboard/explorer">
-            <Button className="w-full bg-blue-600 hover:bg-blue-700">
-              <BookOpen className="w-4 h-4 mr-2" />
-              Découvrir de nouveaux cours
-            </Button>
-          </Link>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

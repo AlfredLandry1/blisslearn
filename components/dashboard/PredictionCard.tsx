@@ -31,6 +31,8 @@ import {
   Tooltip
 } from "recharts";
 import { useUIStore } from "@/stores/uiStore";
+import { useApiClient } from "@/hooks/useApiClient";
+import { useSession } from "next-auth/react";
 
 interface PredictionData {
   day: string;
@@ -64,35 +66,34 @@ export function PredictionCard() {
   const [selectedMetric, setSelectedMetric] = useState<'hours' | 'courses' | 'certifications'>('hours');
 
   const { addNotification } = useUIStore();
+  const { status } = useSession();
+
+  const {
+    data: predictionsData,
+    loading: predictionsLoading,
+    error: predictionsError,
+    get: fetchPredictions
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setPredictionData(data);
+      setLoading(false);
+    },
+    onError: (error) => {
+      console.error('Erreur chargement prédictions:', error);
+      setLoading(false);
+      addNotification({
+        type: 'error',
+        title: 'Erreur de chargement',
+        message: 'Impossible de charger les prédictions'
+      });
+    }
+  });
 
   useEffect(() => {
-    fetchPredictions();
-  }, []);
-
-  const fetchPredictions = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/stats/predictions');
-      
-      if (response.ok) {
-        const data = await response.json();
-        setPredictionData(data);
-      } else {
-        throw new Error('Erreur lors du chargement des prédictions');
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      setError('Impossible de charger les prédictions');
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de charger les prédictions d'évolution",
-        duration: 5000
-      });
-    } finally {
-      setLoading(false);
+    if (status === "authenticated") {
+      fetchPredictions('/api/stats/predictions');
     }
-  };
+  }, [status, fetchPredictions]);
 
   const getMetricConfig = () => {
     switch (selectedMetric) {
@@ -172,7 +173,7 @@ export function PredictionCard() {
         <CardContent>
           <div className="text-center py-8">
             <p className="text-gray-400 mb-4">{error || "Aucune donnée disponible"}</p>
-            <Button onClick={fetchPredictions} variant="outline" size="sm">
+            <Button onClick={() => fetchPredictions('/api/stats/predictions')} variant="outline" size="sm">
               Réessayer
             </Button>
           </div>
@@ -372,7 +373,7 @@ export function PredictionCard() {
         {/* Bouton de rafraîchissement */}
         <div className="flex justify-center">
           <Button
-            onClick={fetchPredictions}
+            onClick={() => fetchPredictions('/api/stats/predictions')}
             variant="outline"
             size="sm"
             className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10"

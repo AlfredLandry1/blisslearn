@@ -5,7 +5,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/authOptions';
 
 // POST - Générer et télécharger le certificat
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

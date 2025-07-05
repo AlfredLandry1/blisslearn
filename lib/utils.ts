@@ -140,3 +140,41 @@ export function formatTimeSpent(minutes: number): string {
   }
   return `${hours}h ${remainingMinutes}min`;
 }
+
+// ✅ NOUVEAU : Fonction utilitaire pour les requêtes fetch avec gestion d'erreurs robuste
+export async function fetchWithTimeout(
+  url: string, 
+  options: RequestInit = {}, 
+  timeoutMs: number = 10000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    // Gestion spécifique des erreurs d'annulation
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log(`⚠️ Requête annulée: ${url}`);
+      throw new Error('Requête annulée (timeout ou navigation)');
+    }
+    
+    // Relancer les autres erreurs
+    throw error;
+  }
+}
+
+// ✅ NOUVEAU : Fonction pour nettoyer les timeouts
+export function clearTimeoutSafely(timeoutId: NodeJS.Timeout | null): void {
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+  }
+}

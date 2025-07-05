@@ -5,7 +5,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/authOptions';
 
 // GET - Récupérer une certification spécifique
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

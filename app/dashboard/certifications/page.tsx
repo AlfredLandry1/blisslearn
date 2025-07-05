@@ -1,44 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { CertificationCard } from "@/components/dashboard/CertificationCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Award,
-  Search,
-  Filter,
-  Plus,
-  Download,
-  Share2,
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Trophy, 
+  Award, 
+  Star, 
+  Download, 
   Eye,
-  Calendar,
-  Clock,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
+  Clock,
+  Target,
+  TrendingUp,
+  Calendar
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useUIStore } from "@/stores/uiStore";
+import { PageLoadingState } from "@/components/ui/loading-states";
+import { useApiClient } from "@/hooks/useApiClient";
+import { AchievementMessage, MotivationMessage, ProgressMessage } from "@/components/ui/personalized-message";
+import { usePersonalizedContent } from "@/hooks/usePersonalizedContent";
 
 interface Certification {
   id: string;
   title: string;
-  certificateNumber: string;
-  issuedAt: string;
-  expiresAt: string | null;
-  status: string;
-  isVerified: boolean;
-  institution: string | null;
-  level: string | null;
-  duration: string | null;
-  timeSpent: number | null;
-  completionDate: string;
-  createdAt: string;
-  updatedAt: string;
+  platform: string;
+  courseTitle: string;
+  issuedDate: string;
+  expiryDate?: string;
+  score: number;
+  status: 'active' | 'expired' | 'pending';
+  downloadUrl?: string;
+  verifyUrl?: string;
+  imageUrl?: string;
 }
 
 interface CertificationStats {
@@ -48,297 +46,300 @@ interface CertificationStats {
   averageScore: number;
 }
 
-interface CertificationFilters {
-  status: string;
-  platform: string;
-  dateRange: string;
-}
-
 export default function CertificationsPage() {
-  const { data: session, status } = useSession();
-  const { addNotification, setLoading, isKeyLoading } = useUIStore();
-
+  const { data: session, status: authStatus } = useSession();
   const [certifications, setCertifications] = useState<Certification[]>([]);
-  const [loading, setLocalLoading] = useState(true);
+  const [stats, setStats] = useState<CertificationStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  const loadingKey = "certifications-page";
-  const globalLoading = isKeyLoading(loadingKey);
+  const { addNotification, setLoading: setUILoading, isKeyLoading } = useUIStore();
+  const loadingKey = "certifications";
+  const isLoading = isKeyLoading(loadingKey);
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchCertifications();
-    }
-  }, [status]);
+  // Hook pour rafraîchir le contenu personnalisé
+  const { refresh: refreshPersonalizedContent } = usePersonalizedContent();
 
-  const fetchCertifications = async () => {
-    setLoading(loadingKey, true);
-    setLocalLoading(true);
-    try {
-      const response = await fetch("/api/certifications");
-      if (!response.ok) {
-        throw new Error("Erreur lors du chargement des certifications");
-      }
-      const data = await response.json();
-
-      // L'API retourne un objet avec certifications, pagination et stats
-      // Nous devons extraire le tableau des certifications
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    data: certData,
+    loading: certLoading,
+    error: certError,
+    get: fetchCertifications
+  } = useApiClient<{ certifications: Certification[]; stats: CertificationStats }>({
+    onSuccess: (data) => {
       setCertifications(data.certifications || []);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Erreur lors du chargement"
-      );
+      setStats(data.stats || null);
+      setUILoading(loadingKey, false);
+    },
+    onError: (error) => {
+      console.error('Erreur chargement certifications:', error);
+      setError(error.message);
+      setUILoading(loadingKey, false);
       addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de charger les certifications",
-        duration: 5000,
+        type: 'error',
+        title: 'Erreur de chargement',
+        message: 'Impossible de charger vos certifications'
       });
-    } finally {
-      setLoading(loadingKey, false);
-      setLocalLoading(false);
     }
-  };
-
-  const filteredCertifications = certifications.filter((certification) => {
-    const matchesSearch =
-      certification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      certification.certificateNumber
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      (certification.institution &&
-        certification.institution
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()));
-
-    const matchesStatus =
-      filterStatus === "all" || certification.status === filterStatus;
-
-    return matchesSearch && matchesStatus;
   });
 
-  const getStatusStats = () => {
-    const stats = {
-      active: 0,
-      expired: 0,
-      revoked: 0,
-      total: certifications.length,
-    };
+  // ✅ OPTIMISÉ : Chargement des certifications
+  useEffect(() => {
+    if (authStatus === "authenticated") {
+      setUILoading(loadingKey, true);
+      setError(null);
+      fetchCertifications('/api/certifications');
+    }
+  }, [authStatus, fetchCertifications, setUILoading, loadingKey]);
 
-    certifications.forEach((cert) => {
-      if (cert.status === "active") stats.active++;
-      else if (cert.status === "expired") stats.expired++;
-      else if (cert.status === "revoked") stats.revoked++;
-    });
-
-    return stats;
-  };
-
-  const stats = getStatusStats();
-
-  if (loading || globalLoading) {
+  if (authStatus === "loading" || isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <PageLoadingState message="Chargement des certifications..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (authStatus !== "authenticated") {
+    return (
+      <DashboardLayout>
+        <div className="text-center text-gray-400 py-20">
+          Veuillez vous connecter pour voir vos certifications.
         </div>
       </DashboardLayout>
     );
   }
 
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-7xl mx-auto py-8 px-6">
+          <div className="text-center py-20">
+            <div className="text-red-400 text-lg font-medium mb-4">
+              Erreur lors du chargement
+            </div>
+            <p className="text-gray-400 mb-6">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Réessayer
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-500/10 text-green-400 border-green-500/20';
+      case 'expired': return 'bg-red-500/10 text-red-400 border-red-500/20';
+      case 'pending': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return 'Active';
+      case 'expired': return 'Expirée';
+      case 'pending': return 'En cours';
+      default: return 'Inconnu';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   return (
     <DashboardLayout>
-      <div className="relative">
-        <div className="relative z-10">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="p-3 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30">
-                <Award className="w-8 h-8 text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">
-                  Mes Certifications
-                </h1>
-                <p className="text-gray-400">
-                  Gérez et partagez vos certifications professionnelles
+      <div className="max-w-7xl mx-auto py-8 px-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Mes Certifications</h1>
+            <p className="text-gray-400">Validez et partagez vos compétences acquises</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Exporter
+            </Button>
+            <Button size="sm">
+              <Trophy className="w-4 h-4 mr-2" />
+              Nouvelle certification
+            </Button>
+          </div>
+        </div>
+
+        {/* Messages personnalisés IA */}
+        <div className="space-y-4 mb-8">
+          <AchievementMessage 
+            autoHide={true} 
+            autoHideDelay={8000}
+            className="opacity-0 animate-fade-in duration-500"
+          />
+          <MotivationMessage 
+            showRefresh={true}
+            onRefresh={refreshPersonalizedContent}
+            className="opacity-0 animate-fade-in duration-500 delay-200"
+          />
+          <ProgressMessage 
+            className="opacity-0 animate-fade-in duration-500 delay-400"
+          />
+        </div>
+
+        {/* Statistiques */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="bg-gray-900/60 border-gray-700">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">Total</CardTitle>
+                <Trophy className="h-4 w-4 text-yellow-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{stats.total}</div>
+                <p className="text-xs text-gray-400">
+                  certifications obtenues
                 </p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Statistiques */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm overflow-hidden">
-                <CardContent className="p-4 overflow-hidden">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-full bg-blue-500/20 flex-shrink-0">
-                      <Award className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-2xl font-bold text-white truncate">
-                        {stats.total}
-                      </p>
-                      <p className="text-gray-400 text-sm truncate">Total</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <Card className="bg-gray-900/60 border-gray-700">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">Actives</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{stats.completed}</div>
+                <p className="text-xs text-gray-400">
+                  certifications valides
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm overflow-hidden">
-                <CardContent className="p-4 overflow-hidden">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-full bg-green-500/20 flex-shrink-0">
-                      <CheckCircle className="w-5 h-5 text-green-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-2xl font-bold text-white truncate">
-                        {stats.active}
-                      </p>
-                      <p className="text-gray-400 text-sm truncate">Actives</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <Card className="bg-gray-900/60 border-gray-700">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">En cours</CardTitle>
+                <Clock className="h-4 w-4 text-blue-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{stats.inProgress}</div>
+                <p className="text-xs text-gray-400">
+                  en cours d'obtention
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm overflow-hidden">
-                <CardContent className="p-4 overflow-hidden">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-full bg-orange-500/20 flex-shrink-0">
-                      <Clock className="w-5 h-5 text-orange-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-2xl font-bold text-white truncate">
-                        {stats.expired}
-                      </p>
-                      <p className="text-gray-400 text-sm truncate">Expirées</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <Card className="bg-gray-900/60 border-gray-700">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-300">Score moyen</CardTitle>
+                <Star className="h-4 w-4 text-purple-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">{stats.averageScore}%</div>
+                <p className="text-xs text-gray-400">
+                  performance moyenne
+                </p>
+                <Progress value={stats.averageScore} className="mt-2" />
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-              <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm overflow-hidden">
-                <CardContent className="p-4 overflow-hidden">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-full bg-red-500/20 flex-shrink-0">
-                      <XCircle className="w-5 h-5 text-red-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-2xl font-bold text-white truncate">
-                        {stats.revoked}
-                      </p>
-                      <p className="text-gray-400 text-sm truncate">Révoquées</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Liste des certifications */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-white">Certifications récentes</h2>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Eye className="w-4 h-4 mr-2" />
+                Voir tout
+              </Button>
             </div>
           </div>
 
-          {/* Filtres et recherche */}
-          <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm mb-6 overflow-hidden">
-            <CardContent className="p-4 overflow-hidden">
-              <div className="flex flex-col sm:flex-row gap-4 min-w-0">
-                <div className="flex-1 relative min-w-0">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <Input
-                    placeholder="Rechercher une certification..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-gray-800/60 border-gray-700 text-gray-300 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500/50 w-full"
-                  />
-                </div>
+          {certifications.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {certifications.map((cert) => (
+                <Card key={cert.id} className="bg-gray-900/60 border-gray-700 hover:border-gray-600 transition-colors">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-white text-sm line-clamp-2 mb-1">
+                          {cert.title}
+                        </h3>
+                        <p className="text-gray-400 text-xs mb-2">
+                          {cert.courseTitle}
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {cert.platform}
+                        </p>
+                      </div>
+                      <Badge className={`text-xs ${getStatusColor(cert.status)}`}>
+                        {getStatusLabel(cert.status)}
+                      </Badge>
+                    </div>
 
-                <div className="flex flex-wrap gap-2 flex-shrink-0">
-                  <Button
-                    variant={filterStatus === "all" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterStatus("all")}
-                    className={
-                      filterStatus === "all"
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                    }
-                  >
-                    Toutes
-                  </Button>
-                  <Button
-                    variant={filterStatus === "active" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterStatus("active")}
-                    className={
-                      filterStatus === "active"
-                        ? "bg-green-600 hover:bg-green-700"
-                        : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                    }
-                  >
-                    Actives
-                  </Button>
-                  <Button
-                    variant={filterStatus === "expired" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterStatus("expired")}
-                    className={
-                      filterStatus === "expired"
-                        ? "bg-orange-600 hover:bg-orange-700"
-                        : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                    }
-                  >
-                    Expirées
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">Score</span>
+                        <span className="text-white font-medium">{cert.score}%</span>
+                      </div>
+                      <Progress value={cert.score} className="h-2" />
+                      
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400">Obtenue le</span>
+                        <span className="text-white">{formatDate(cert.issuedDate)}</span>
+                      </div>
 
-          {/* Liste des certifications */}
-          {error ? (
-            <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm">
-              <CardContent className="p-8 text-center">
-                <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  Erreur de chargement
-                </h3>
-                <p className="text-gray-400 mb-4">{error}</p>
-                <Button onClick={fetchCertifications}>Réessayer</Button>
-              </CardContent>
-            </Card>
-          ) : filteredCertifications.length === 0 ? (
-            <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 border border-gray-700/50 backdrop-blur-sm">
-              <CardContent className="p-8 text-center">
-                <Award className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  {searchTerm || filterStatus !== "all"
-                    ? "Aucune certification trouvée"
-                    : "Aucune certification"}
-                </h3>
-                <p className="text-gray-400 mb-4">
-                  {searchTerm || filterStatus !== "all"
-                    ? "Essayez de modifier vos critères de recherche"
-                    : "Commencez par compléter un cours pour obtenir votre première certification"}
-                </p>
-                {!searchTerm && filterStatus === "all" && (
-                  <Button
-                    onClick={() =>
-                      (window.location.href = "/dashboard/explorer")
-                    }
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Découvrir des cours
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredCertifications.map((certification) => (
-                <CertificationCard
-                  key={certification.id}
-                  certification={certification}
-                />
+                      {cert.expiryDate && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-400">Expire le</span>
+                          <span className="text-white">{formatDate(cert.expiryDate)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 mt-4">
+                      {cert.downloadUrl && (
+                        <Button size="sm" variant="outline" className="flex-1">
+                          <Download className="w-3 h-3 mr-1" />
+                          Télécharger
+                        </Button>
+                      )}
+                      {cert.verifyUrl && (
+                        <Button size="sm" variant="outline" className="flex-1">
+                          <Eye className="w-3 h-3 mr-1" />
+                          Vérifier
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
+          ) : (
+            <Card className="bg-gray-900/60 border-gray-700">
+              <CardContent className="p-12 text-center">
+                <Trophy className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                <h3 className="text-white font-semibold mb-2">Aucune certification</h3>
+                <p className="text-gray-400 text-sm mb-6">
+                  Commencez par terminer des cours pour obtenir vos premières certifications
+                </p>
+                <Button>
+                  <Target className="w-4 h-4 mr-2" />
+                  Explorer les cours
+                </Button>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>

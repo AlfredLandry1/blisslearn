@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Bell, LogOut, Settings, Sparkles, Menu, X } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { Badge } from "@/components/ui/badge";
+import { SafeAvatar } from "@/components/ui/safe-avatar";
+import { useWelcomeMessage } from "@/hooks/usePersonalizedContent";
 
 export function DashboardHeader({
   onMobileMenu,
@@ -18,8 +20,9 @@ export function DashboardHeader({
   const { data: session } = useSession();
   const router = useRouter();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const { welcomeMessage, loading: welcomeLoading } = useWelcomeMessage();
   const unreadCount = useUIStore(
-    (s) => s.notifications.filter((n: any) => !n.read).length
+    (s) => s.persistentNotifications.filter((n: any) => !n.read).length
   );
 
   return (
@@ -68,6 +71,21 @@ export function DashboardHeader({
           </div>
         </div>
 
+        {/* Message de bienvenue personnalisé - visible sur desktop */}
+        <div className="hidden lg:flex items-center flex-1 justify-center px-4">
+          <div className="text-center">
+            {welcomeLoading ? (
+              <div className="text-gray-400 text-sm animate-pulse">
+                Chargement...
+              </div>
+            ) : (
+              <p className="text-gray-300 text-sm font-medium max-w-md truncate">
+                {welcomeMessage}
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* Actions - optimisé pour mobile */}
         <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-4">
           {/* Notifications - visible sur mobile */}
@@ -112,12 +130,12 @@ export function DashboardHeader({
 
           {/* Avatar et nom utilisateur */}
           <div className="ml-1 sm:ml-2 flex items-center space-x-2">
-            <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-blue-500">
-              <AvatarImage src={session?.user?.image || ""} />
-              <AvatarFallback className="bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm sm:text-lg">
-                {session?.user?.name?.charAt(0) || "U"}
-              </AvatarFallback>
-            </Avatar>
+            <SafeAvatar 
+              src={session?.user?.image || ""} 
+              alt={session?.user?.name || "Utilisateur"}
+              size="md"
+              className="border-2 border-blue-500"
+            />
             <span className="hidden md:block text-white font-medium max-w-[120px] truncate">
               {session?.user?.name || "Utilisateur"}
             </span>

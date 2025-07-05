@@ -4,7 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/authOptions';
 import { prisma } from "@/lib/prisma";
 
 // GET - Récupérer la progression d'un cours
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Créer ou mettre à jour la progression
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PUT - Mettre à jour les notes et évaluations
-export async function PUT(request: NextRequest) {
+export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -236,7 +236,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // PATCH - Mettre à jour les favoris et la progression
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -358,7 +358,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 // DELETE - Supprimer la progression
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {

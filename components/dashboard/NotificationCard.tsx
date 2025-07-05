@@ -53,7 +53,7 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
             </Button>
           )}
           {onDetail && (
-            <Button size="sm" variant="secondary" onClick={() => onDetail(notification.id)}>
+            <Button size="sm" variant="secondary" onClick={() => onDetail(notification)}>
               Voir le détail
             </Button>
           )}

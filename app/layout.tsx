@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Inter } from "next/font/google";
-
-const inter = Inter({ subsets: ["latin"] });
+import { StructuredData } from "@/components/ui/structured-data";
+import { SkipLinks, defaultSkipLinks } from "@/components/ui/skip-links";
+import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
+import { PerformanceMonitor } from "@/components/ui/performance-monitor";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { GoogleAnalytics } from "@/components/ui/analytics";
 
 export const metadata: Metadata = {
   title: {
@@ -31,7 +34,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://blisslearn.com'),
+  metadataBase: new URL('https://styland-digital-blisslearn.vercel.app/'),
   alternates: {
     canonical: '/',
   },
@@ -46,7 +49,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "fr_FR",
-    url: "https://blisslearn.com",
+    url: "https://styland-digital-blisslearn.vercel.app/",
     title: "BlissLearn - Plateforme d'Apprentissage Intelligente",
     description: "Découvrez BlissLearn, la plateforme d'apprentissage intelligente qui révolutionne l'éducation avec l'IA. Cours personnalisés, recommandations adaptatives et expérience d'apprentissage immersive.",
     siteName: "BlissLearn",
@@ -102,10 +105,45 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={inter.className}>
-        <Providers>
-          {children}
-        </Providers>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Optimisation du chargement des polices
+              if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(() => {
+                  document.documentElement.classList.add('fonts-loaded');
+                });
+              }
+              
+              // Service Worker
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                      console.log('SW registered: ', registration);
+                    })
+                    .catch(function(registrationError) {
+                      console.log('SW registration failed: ', registrationError);
+                    });
+                });
+              }
+            `,
+          }}
+        />
+      </head>
+                    <body className="font-sans">
+        <ErrorBoundary>
+          <SkipLinks links={defaultSkipLinks} />
+          <Providers>
+            {children}
+            <StructuredData type="website" />
+            <StructuredData type="organization" />
+            <PWAInstallPrompt />
+            <PerformanceMonitor />
+            <GoogleAnalytics />
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );

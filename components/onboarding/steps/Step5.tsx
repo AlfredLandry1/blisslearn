@@ -8,8 +8,13 @@ import { ArrowLeft, ArrowRight, Monitor } from "lucide-react";
 import { StepProps, PREFERRED_PLATFORMS } from "../types";
 
 export function OnboardingStep5({ data, updateData, onNext, onPrev, isLoading }: StepProps) {
+  // Protection contre data null/undefined
+  if (!data) {
+    return <div>Chargement...</div>;
+  }
+
   const handlePlatformChange = (platform: string, checked: boolean) => {
-    let newPlatforms = [...data.preferredPlatforms];
+    let newPlatforms = [...(data.preferredPlatforms || [])];
     
     if (checked) {
       newPlatforms.push(platform);
@@ -53,7 +58,7 @@ export function OnboardingStep5({ data, updateData, onNext, onPrev, isLoading }:
           >
             <Checkbox
               id={platform}
-              checked={data.preferredPlatforms.includes(platform)}
+              checked={(data.preferredPlatforms || []).includes(platform)}
               onCheckedChange={(checked) => handlePlatformChange(platform, checked as boolean)}
               className="mt-1"
             />
@@ -64,7 +69,7 @@ export function OnboardingStep5({ data, updateData, onNext, onPrev, isLoading }:
         ))}
       </div>
 
-      {data.preferredPlatforms.length > 0 && (
+      {(data.preferredPlatforms || []).length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -72,10 +77,10 @@ export function OnboardingStep5({ data, updateData, onNext, onPrev, isLoading }:
         >
           <p className="text-indigo-400 text-sm font-medium mb-2">Plateformes sélectionnées :</p>
           <div className="flex flex-wrap gap-2">
-            {data.preferredPlatforms.map((platform, index) => (
+            {(data.preferredPlatforms || []).map((platform, index) => (
               <span
                 key={index}
-                className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-1 rounded"
+                className="bg-indigo-400/20 text-indigo-300 text-xs px-2 py-1 rounded"
               >
                 {platform}
               </span>

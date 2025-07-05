@@ -6,6 +6,11 @@ import { ArrowLeft, CheckCircle, Target, BookOpen, TrendingUp, Clock, Monitor, S
 import { Step7Props, SKILL_LEVELS, COURSE_DURATIONS } from "../types";
 
 export function OnboardingStep7({ data, onPrev, onSubmit, isLoading }: Step7Props) {
+  // Protection contre data null/undefined
+  if (!data) {
+    return <div>Chargement...</div>;
+  }
+
   const getSkillLevelLabel = (value: string) => {
     return SKILL_LEVELS.find(level => level.value === value)?.label || value;
   };
@@ -44,7 +49,7 @@ export function OnboardingStep7({ data, onPrev, onSubmit, isLoading }: Step7Prop
             <h3 className="text-blue-400 font-medium">Objectifs d'apprentissage</h3>
           </div>
           <div className="flex flex-wrap gap-2">
-            {data.learningObjectives.map((objective, index) => (
+            {(data.learningObjectives || []).map((objective, index) => (
               <span key={index} className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded">
                 {objective}
               </span>
@@ -64,7 +69,7 @@ export function OnboardingStep7({ data, onPrev, onSubmit, isLoading }: Step7Prop
             <h3 className="text-green-400 font-medium">Domaines d'intérêt</h3>
           </div>
           <div className="flex flex-wrap gap-2">
-            {data.domainsOfInterest.map((domain, index) => (
+            {(data.domainsOfInterest || []).map((domain, index) => (
               <span key={index} className="bg-green-500/20 text-green-300 text-xs px-2 py-1 rounded">
                 {domain}
               </span>
@@ -83,7 +88,7 @@ export function OnboardingStep7({ data, onPrev, onSubmit, isLoading }: Step7Prop
             <TrendingUp className="w-4 h-4 text-purple-400" aria-hidden="true" />
             <h3 className="text-purple-400 font-medium">Niveau de compétence</h3>
           </div>
-          <p className="text-purple-300 text-sm">{getSkillLevelLabel(data.skillLevel)}</p>
+          <p className="text-purple-300 text-sm">{getSkillLevelLabel(data.skillLevel || "")}</p>
         </motion.div>
 
         {/* Disponibilité horaire */}
@@ -97,11 +102,11 @@ export function OnboardingStep7({ data, onPrev, onSubmit, isLoading }: Step7Prop
             <Clock className="w-4 h-4 text-orange-400" aria-hidden="true" />
             <h3 className="text-orange-400 font-medium">Disponibilité horaire</h3>
           </div>
-          <p className="text-orange-300 text-sm">{data.weeklyHours} heure{data.weeklyHours > 1 ? 's' : ''} par semaine</p>
+          <p className="text-orange-300 text-sm">{data.weeklyHours || 0} heure{(data.weeklyHours || 0) > 1 ? 's' : ''} par semaine</p>
         </motion.div>
 
         {/* Plateformes préférées */}
-        {data.preferredPlatforms.length > 0 && (
+        {(data.preferredPlatforms || []).length > 0 && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -113,7 +118,7 @@ export function OnboardingStep7({ data, onPrev, onSubmit, isLoading }: Step7Prop
               <h3 className="text-indigo-400 font-medium">Plateformes préférées</h3>
             </div>
             <div className="flex flex-wrap gap-2">
-              {data.preferredPlatforms.map((platform, index) => (
+              {(data.preferredPlatforms || []).map((platform, index) => (
                 <span key={index} className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-1 rounded">
                   {platform}
                 </span>
@@ -134,9 +139,9 @@ export function OnboardingStep7({ data, onPrev, onSubmit, isLoading }: Step7Prop
             <h3 className="text-teal-400 font-medium">Préférences de cours</h3>
           </div>
           <div className="space-y-2 text-sm text-teal-300">
-            <p>• Formats : {data.coursePreferences.format.join(", ")}</p>
-            <p>• Durée : {getDurationLabel(data.coursePreferences.duration)}</p>
-            <p>• Langue : {data.coursePreferences.language}</p>
+            <p>• Formats : {(data.coursePreferences?.format || []).join(", ")}</p>
+            <p>• Durée : {getDurationLabel(data.coursePreferences?.duration || "")}</p>
+            <p>• Langue : {data.coursePreferences?.language || ""}</p>
           </div>
         </motion.div>
       </div>

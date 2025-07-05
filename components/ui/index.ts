@@ -11,4 +11,7 @@ export * from "./responsive-grid";
 
 // Nouveaux composants pour les paliers
 export { MilestoneProgress } from './MilestoneProgress';
-export { MilestoneValidationForm } from './MilestoneValidationForm'; 
+export { MilestoneValidationForm } from './MilestoneValidationForm';
+
+// Composants de personnalisation IA
+export * from './personalized-message'; 

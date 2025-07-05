@@ -25,6 +25,7 @@ import { SectionHeader, CourseSkills, CourseInfo } from "@/components/ui";
 import { safeJsonParseArray } from "@/lib/utils";
 import { PageLoadingState } from "@/components/ui/loading-states";
 import { PriceConverter } from "@/components/ui/PriceConverter";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface Course {
   id: number;
@@ -78,30 +79,38 @@ export default function CourseDetailPage() {
 
   const { refreshCourses } = useCourseStore();
 
+  const {
+    get: getCourse,
+    patch: patchFavorite,
+  } = useApiClient<any>({
+    onError: (error) => {
+      setError(error.message || "Erreur lors du chargement");
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Impossible de charger les détails du cours",
+        duration: 5000
+      });
+    }
+  });
+
   useEffect(() => {
     const fetchCourseData = async () => {
       setLoading(loadingKey, true);
       try {
         // Récupérer les détails du cours
-        const courseResponse = await fetch(`/api/courses/${courseId}`);
-        if (!courseResponse.ok) {
+        const courseResponse = await getCourse(`/api/courses/${courseId}`);
+        if (!courseResponse?.data) {
           throw new Error("Cours non trouvé");
         }
-        const courseData = await courseResponse.json();
-        setCourse(courseData);
-
+        setCourse(courseResponse.data);
         // Récupérer la progression
-        const progressResponse = await fetch(
-          `/api/courses/progress?courseId=${courseId}`
-        );
-        if (progressResponse.ok) {
-          const progressData = await progressResponse.json();
-          setProgress(progressData);
+        const progressResponse = await getCourse(`/api/courses/progress?courseId=${courseId}`);
+        if (progressResponse?.data) {
+          setProgress(progressResponse.data);
         }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Erreur lors du chargement"
-        );
+        setError(err instanceof Error ? err.message : "Erreur lors du chargement");
         addNotification({
           type: "error",
           title: "Erreur",
@@ -112,7 +121,6 @@ export default function CourseDetailPage() {
         setLoading(loadingKey, false);
       }
     };
-
     if (courseId) {
       fetchCourseData();
     }
@@ -259,28 +267,19 @@ export default function CourseDetailPage() {
                     onClick={async () => {
                       try {
                         const newFavoriteState = !progress?.favorite;
-                        
-                        const response = await fetch("/api/courses/progress", {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            courseId: course.id,
-                            favorite: newFavoriteState,
-                            lastActivityAt: new Date().toISOString()
-                          })
+                        const response = await patchFavorite("/api/courses/progress", {
+                          courseId: course.id,
+                          favorite: newFavoriteState,
+                          lastActivityAt: new Date().toISOString()
                         });
-
-                        if (response.ok) {
-                          // Mettre à jour l'état local
+                        if (response?.data) {
                           setProgress(prev => prev ? { ...prev, favorite: newFavoriteState } : null);
-                          
                           addNotification({
                             type: "success",
                             title: newFavoriteState ? "Ajouté aux favoris" : "Retiré des favoris",
                             message: newFavoriteState ? "Cours ajouté à vos favoris" : "Cours retiré de vos favoris",
                             duration: 3000,
                           });
-
                           await refreshCourses();
                         } else {
                           throw new Error("Erreur lors de la mise à jour");

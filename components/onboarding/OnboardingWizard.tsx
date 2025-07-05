@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,15 +20,37 @@ import { OnboardingData } from "./types";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@/stores/userStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useApiClient } from "@/hooks/useApiClient";
+import { signOut, signIn } from "next-auth/react";
 
 const TOTAL_STEPS = 7;
 
 export function OnboardingWizard() {
   const router = useRouter();
   const { updateOnboardingStatus } = useUserStore();
-  const { addNotification } = useUIStore();
+  const { createPersistentNotification } = useUIStore();
   const [currentStep, setCurrentStep] = useState(1);
-  const [onboardingData, setOnboardingData] = useState<OnboardingData>({
+  const {
+    data: onboardingData,
+    loading: onboardingLoading,
+    error: onboardingError,
+    post: postOnboarding,
+    get: getOnboarding,
+  } = useApiClient<any>({
+    onError: (error) => {
+      createPersistentNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Erreur lors de la sauvegarde de l'onboarding",
+        duration: 5000,
+      });
+    },
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Initialiser les données par défaut pour éviter les erreurs null
+  const defaultOnboardingData: OnboardingData = {
     learningObjectives: [],
     domainsOfInterest: [],
     skillLevel: "",
@@ -39,12 +61,48 @@ export function OnboardingWizard() {
       duration: "",
       language: ""
     }
-  });
+  };
 
-  const [isLoading, setIsLoading] = useState(false);
+  // Utiliser les données existantes ou les données par défaut
+  const currentData = onboardingData || defaultOnboardingData;
+
+  const [localData, setLocalData] = useState<OnboardingData>(defaultOnboardingData);
+
+  // Charger les données d'onboarding existantes au démarrage
+  useEffect(() => {
+    getOnboarding('/api/onboarding');
+  }, []);
+
+  // Initialiser localData avec les données existantes si disponibles
+  useEffect(() => {
+    if (onboardingData?.data?.onboardingData) {
+      setLocalData({ ...defaultOnboardingData, ...onboardingData.data.onboardingData });
+      // Si l'onboarding est déjà complété, rediriger vers le dashboard
+      if (onboardingData.data.onboardingCompleted) {
+        router.push("/dashboard");
+      }
+    }
+  }, [onboardingData]);
 
   const updateOnboardingData = (stepData: Partial<OnboardingData>) => {
-    setOnboardingData(prev => ({ ...prev, ...stepData }));
+    const newData = { ...localData, ...stepData };
+    setLocalData(newData);
+    
+    // Sauvegarder les données à chaque étape
+    const saveStepData = async () => {
+      try {
+        await postOnboarding('/api/onboarding', {
+          data: newData,
+          step: currentStep,
+          completed: false
+        });
+      } catch (error) {
+        // Erreur déjà gérée par le client API
+      }
+    };
+    
+    // Sauvegarder en arrière-plan
+    saveStepData();
   };
 
   const nextStep = () => {
@@ -62,38 +120,33 @@ export function OnboardingWizard() {
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      // Envoyer les données d'onboarding à l'API
-      const response = await fetch("/api/onboarding", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(onboardingData),
+      const response = await postOnboarding("/api/onboarding", {
+        data: localData,
+        step: 7,
+        completed: true
       });
-
-      if (!response.ok) {
+      
+      if (!response?.data) {
         throw new Error("Erreur lors de la sauvegarde de l'onboarding");
       }
-
-      const result = await response.json();
+      
+      const result = response.data;
       console.log("Onboarding sauvegardé:", result);
-
-      // Mettre à jour le statut d'onboarding dans le store global
       updateOnboardingStatus(true);
-
-      // Ajouter une notification de succès
-      addNotification({
+      createPersistentNotification({
         type: "success",
         title: "Onboarding complété !",
         message: "Votre profil d'apprentissage a été configuré avec succès. Vous pouvez maintenant commencer votre parcours d'apprentissage personnalisé.",
         duration: 5000
       });
-
-      // Rediriger vers le dashboard après sauvegarde réussie
+      
+      // Forcer la mise à jour de la session
+      await signOut({ redirect: false });
+      await signIn();
+      
       router.push("/dashboard");
     } catch (error) {
-      console.error("Erreur lors de l'onboarding:", error);
-      // Ici vous pourriez afficher un message d'erreur à l'utilisateur
+      // Erreur déjà gérée par le client API
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +180,7 @@ export function OnboardingWizard() {
 
   const renderStep = () => {
     const commonProps = {
-      data: onboardingData,
+      data: localData,
       updateData: updateOnboardingData,
       onNext: nextStep,
       onPrev: prevStep,

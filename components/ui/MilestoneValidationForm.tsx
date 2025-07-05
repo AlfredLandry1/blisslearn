@@ -24,6 +24,7 @@ import {
   initialMilestoneValidationValues, 
   type MilestoneValidationFormValues 
 } from "@/lib/validation-schemas";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface MilestoneValidationFormProps {
   percentage: number;
@@ -52,6 +53,15 @@ export function MilestoneValidationForm({
   const [existingMilestone, setExistingMilestone] = useState<any>(null);
   const [isLoadingMilestone, setIsLoadingMilestone] = useState(false);
 
+  const {
+    get: getMilestone,
+  } = useApiClient<any>({
+    onError: (error) => {
+      console.error('Erreur chargement données palier:', error);
+      toast.error('Erreur lors du chargement des données du palier');
+    }
+  });
+
   // Charger les données existantes du palier si elles existent
   useEffect(() => {
     if (isOpen) {
@@ -62,9 +72,9 @@ export function MilestoneValidationForm({
   const loadExistingMilestoneData = async () => {
     setIsLoadingMilestone(true);
     try {
-      const response = await fetch(`/api/courses/milestones?courseId=${courseId}`);
-      if (response.ok) {
-        const data = await response.json();
+      const response = await getMilestone(`/api/courses/milestones?courseId=${courseId}`);
+      if (response?.data) {
+        const data = response.data;
         const milestone = data.milestones.find((m: any) => m.percentage === percentage);
         setExistingMilestone(milestone);
         
@@ -98,7 +108,7 @@ export function MilestoneValidationForm({
         }
       }
     } catch (error) {
-      console.error('Erreur chargement données palier:', error);
+      // Erreur déjà gérée par le client API
     } finally {
       setIsLoadingMilestone(false);
     }

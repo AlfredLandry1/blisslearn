@@ -1,3 +1,5 @@
+import { authenticatedApiClient } from './api-client';
+
 export interface Notification {
   id: string;
   title?: string;
@@ -34,57 +36,34 @@ class NotificationService {
       ...(unreadOnly && { unread: 'true' })
     });
 
-    const response = await fetch(`/api/notifications?${params}`);
-    
-    if (!response.ok) {
-      throw new Error('Erreur lors de la récupération des notifications');
-    }
-
-    return response.json();
+    const response = await authenticatedApiClient.get(`/api/notifications?${params}`);
+    return response.data as NotificationResponse;
   }
 
   // Créer une nouvelle notification
   async createNotification(notification: Omit<Notification, 'id' | 'read' | 'readAt' | 'createdAt' | 'updatedAt'>): Promise<Notification> {
-    const response = await fetch('/api/notifications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(notification),
-    });
-
-    if (!response.ok) {
-      throw new Error('Erreur lors de la création de la notification');
-    }
-
-    return response.json();
+    const response = await authenticatedApiClient.post('/api/notifications', notification);
+    return response.data as Notification;
   }
 
   // Marquer une notification comme lue
   async markAsRead(notificationId: string, read: boolean = true): Promise<Notification> {
-    const response = await fetch(`/api/notifications/${notificationId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ read }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Erreur lors de la mise à jour de la notification');
+    try {
+      const response = await authenticatedApiClient.patch(`/api/notifications/${notificationId}`, { read });
+      return response.data as Notification;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la notification:', error);
+      throw error;
     }
-
-    return response.json();
   }
 
   // Supprimer une notification
   async deleteNotification(notificationId: string): Promise<void> {
-    const response = await fetch(`/api/notifications/${notificationId}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Erreur lors de la suppression de la notification');
+    try {
+      await authenticatedApiClient.delete(`/api/notifications/${notificationId}`);
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la notification:', error);
+      throw error;
     }
   }
 
@@ -95,13 +74,7 @@ class NotificationService {
       params.append('read', 'true');
     }
 
-    const response = await fetch(`/api/notifications?${params}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Erreur lors de la suppression des notifications');
-    }
+    await authenticatedApiClient.delete(`/api/notifications?${params}`);
   }
 
   // Créer une notification avec des paramètres simplifiés

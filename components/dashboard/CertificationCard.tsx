@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useUIStore } from "@/stores/uiStore";
 import { useRouter } from "next/navigation";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface CertificationCardProps {
   certification: {
@@ -46,7 +47,7 @@ interface CertificationCardProps {
 
 export function CertificationCard({ certification }: CertificationCardProps) {
   const router = useRouter();
-  const { addNotification } = useUIStore();
+  const { createPersistentNotification } = useUIStore();
   const [isHovered, setIsHovered] = useState(false);
 
   const isExpired = certification.expiresAt && new Date(certification.expiresAt) < new Date();
@@ -80,21 +81,29 @@ export function CertificationCard({ certification }: CertificationCardProps) {
     }
   };
 
+  const {
+    post: postDownload,
+  } = useApiClient<any>({
+    onError: (error) => {
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur',
+        message: error.message || 'Impossible de télécharger la certification',
+        duration: 5000
+      });
+    }
+  });
+
   const handleDownload = async () => {
     try {
-      addNotification({
-        type: "info",
-        title: "Téléchargement",
-        message: "Génération du certificat en cours...",
-        duration: 3000
+      await createPersistentNotification({
+        type: 'info',
+        title: 'Téléchargement',
+        message: 'Génération du certificat en cours...'
       });
-
-      const response = await fetch(`/api/certifications/${certification.id}/download`, {
-        method: "POST"
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
+      const response = await postDownload(`/api/certifications/${certification.id}/download`);
+      if (response?.data) {
+        const blob = new Blob([response.data], { type: 'text/html' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -103,23 +112,16 @@ export function CertificationCard({ certification }: CertificationCardProps) {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-
-        addNotification({
-          type: "success",
-          title: "Téléchargement réussi",
-          message: "Votre certification a été téléchargée",
-          duration: 3000
+        await createPersistentNotification({
+          type: 'success',
+          title: 'Téléchargement réussi',
+          message: 'Votre certification a été téléchargée'
         });
       } else {
-        throw new Error("Erreur lors du téléchargement");
+        throw new Error('Erreur lors du téléchargement');
       }
     } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de télécharger la certification",
-        duration: 5000
-      });
+      // Erreur déjà gérée par le client API
     }
   };
 
@@ -135,18 +137,17 @@ export function CertificationCard({ certification }: CertificationCardProps) {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(`${window.location.origin}/verify/${certification.id}`);
-        addNotification({
-          type: "success",
-          title: "Lien copié",
-          message: "Le lien de vérification a été copié dans le presse-papiers",
-          duration: 3000
+        await createPersistentNotification({
+          type: 'success',
+          title: 'Lien copié',
+          message: 'Le lien de vérification a été copié dans le presse-papiers'
         });
       }
     } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de partager la certification",
+      await createPersistentNotification({
+        type: 'error',
+        title: 'Erreur',
+        message: 'Impossible de partager la certification',
         duration: 5000
       });
     }

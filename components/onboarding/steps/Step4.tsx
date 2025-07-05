@@ -9,6 +9,11 @@ import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
 import { StepProps } from "../types";
 
 export function OnboardingStep4({ data, updateData, onNext, onPrev }: StepProps) {
+  // Protection contre data null/undefined
+  if (!data) {
+    return <div>Chargement...</div>;
+  }
+
   const handleHoursChange = (value: number[]) => {
     updateData({ weeklyHours: value[0] });
   };

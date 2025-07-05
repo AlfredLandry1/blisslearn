@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://blisslearn.com/sitemap.xml
+Sitemap: https://styland-digital-blisslearn.vercel.app//sitemap.xml
 
 # Crawl-delay
 Crawl-delay: 1

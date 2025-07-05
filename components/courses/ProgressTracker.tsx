@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { ProgressBarWithLabel, NotesEditor } from "@/components/ui";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface ProgressData {
   id?: string;
@@ -109,9 +110,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [showAbandonDialog, setShowAbandonDialog] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
 
-  const [localTimeSpent, setLocalTimeSpent] = useState(progress.timeSpent || 0);
-  const [localPosition, setLocalPosition] = useState(progress.currentPosition || "");
-  const [localNotes, setLocalNotes] = useState(progress.notes || "");
+  const [localTimeSpent, setLocalTimeSpent] = useState(0);
+  const [localPosition, setLocalPosition] = useState("");
+  const [localNotes, setLocalNotes] = useState("");
 
   // États pour les paliers
   const [milestones, setMilestones] = useState<any[]>([]);
@@ -122,8 +123,47 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [isFormDirty, setIsFormDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { addNotification } = useUIStore();
+  const { createPersistentNotification } = useUIStore();
   const loadingKey = `progress-tracker-${courseId}`;
+
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    data: milestonesData,
+    loading: milestonesLoadingData,
+    error: milestonesError,
+    get: fetchMilestones
+  } = useApiClient<any[]>({
+    onError: (error) => {
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur de chargement',
+        message: 'Impossible de charger les paliers du cours'
+      });
+    }
+  });
+
+  const {
+    data: progressData,
+    loading: progressLoading,
+    error: progressError,
+    post: updateProgress,
+    put: saveProgress
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      createPersistentNotification({
+        type: 'success',
+        title: 'Progression sauvegardée',
+        message: 'Votre progression a été mise à jour'
+      });
+    },
+    onError: (error) => {
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur de sauvegarde',
+        message: 'Impossible de sauvegarder votre progression'
+      });
+    }
+  });
 
   // Mettre à jour la progression locale quand initialProgress change
   useEffect(() => {
@@ -136,12 +176,12 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     }
   }, [initialProgress]);
 
-  // Charger les paliers
+  // ✅ OPTIMISÉ : Chargement des paliers
   useEffect(() => {
-    // Réinitialiser l'état de notification pour chaque nouveau cours
-    setHasShownNotStartedNotification(false);
-    loadMilestones();
-  }, [courseId]);
+    if (courseId) {
+      fetchMilestones(`/api/courses/milestones?courseId=${courseId}`);
+    }
+  }, [courseId, fetchMilestones]);
 
   // Vérifier si le formulaire a des modifications
   useEffect(() => {
@@ -152,52 +192,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     
     setIsFormDirty(hasChanges);
   }, [localTimeSpent, localPosition, localNotes, progress]);
-
-  const loadMilestones = async () => {
-    setMilestonesLoading(true);
-    try {
-      const response = await fetch(`/api/courses/milestones?courseId=${courseId}`);
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Vérifier si le cours n'est pas commencé
-        if (data.courseNotStarted) {
-          setMilestones([]);
-          // Afficher un toast informatif seulement si pas déjà affiché
-          if (!hasShownNotStartedNotification) {
-            addNotification({
-              type: "info",
-              title: "Cours non commencé",
-              message: data.message || "Ce cours n'est pas encore dans vos cours en cours. Aucune statistique disponible.",
-              duration: 5000
-            });
-            setHasShownNotStartedNotification(true);
-          }
-        } else {
-          setMilestones(data.milestones);
-        }
-      } else {
-        // Gérer les erreurs HTTP
-        const errorData = await response.json();
-        addNotification({
-          type: "error",
-          title: "Erreur de chargement",
-          message: errorData.error || "Impossible de charger les statistiques du cours",
-          duration: 5000
-        });
-      }
-    } catch (error) {
-      console.error('Erreur chargement paliers:', error);
-      addNotification({
-        type: "error",
-        title: "Erreur réseau",
-        message: "Impossible de communiquer avec le serveur",
-        duration: 5000
-      });
-    } finally {
-      setMilestonesLoading(false);
-    }
-  };
 
   const getNextAvailableMilestone = () => {
     return milestones.find(m => !m.isCompleted && m.percentage > (progress.progressPercentage || 0));
@@ -222,7 +216,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const handleMilestoneClick = (percentage: number) => {
     if (canValidateMilestone(percentage)) {
       // Ouvrir la modal de validation
-      addNotification({
+      createPersistentNotification({
         type: "info",
         title: "Validation de palier",
         message: `Pour valider le palier ${percentage}%, utilisez la section "Paliers de progression" ci-dessous.`,
@@ -255,31 +249,18 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         lastActivityAt: new Date().toISOString()
       };
 
-      const response = await fetch("/api/courses/progress", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId,
-          status: newStatus,
-          lastActivityAt: new Date().toISOString()
-        })
+      await updateProgress('/api/courses/progress', updatedProgress);
+      setProgress(updatedProgress);
+      onProgressUpdate?.(updatedProgress);
+
+      createPersistentNotification({
+        type: "success",
+        title: "Statut mis à jour",
+        message: `Cours marqué comme ${newStatus === "completed" ? "terminé" : newStatus === "in_progress" ? "en cours" : "en pause"}`,
+        duration: 3000
       });
-
-      if (response.ok) {
-        setProgress(updatedProgress);
-        onProgressUpdate?.(updatedProgress);
-
-        addNotification({
-          type: "success",
-          title: "Statut mis à jour",
-          message: `Cours marqué comme ${newStatus === "completed" ? "terminé" : newStatus === "in_progress" ? "en cours" : "en pause"}`,
-          duration: 3000
-        });
-      } else {
-        throw new Error("Erreur lors de la mise à jour");
-      }
     } catch (error) {
-      addNotification({
+      createPersistentNotification({
         type: "error",
         title: "Erreur",
         message: "Impossible de mettre à jour la progression",
@@ -313,30 +294,18 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         lastActivityAt: new Date().toISOString()
       };
 
-      const response = await fetch("/api/courses/progress", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId,
-          ...updatedProgress
-        })
+      await updateProgress('/api/courses/progress', updatedProgress);
+      setProgress(updatedProgress);
+      onProgressUpdate?.(updatedProgress);
+      
+      createPersistentNotification({
+        type: "success",
+        title: "Progression mise à jour",
+        message: `Progression mise à jour à ${newPercentage}%`,
+        duration: 3000
       });
-
-      if (response.ok) {
-        setProgress(updatedProgress);
-        onProgressUpdate?.(updatedProgress);
-        
-        addNotification({
-          type: "success",
-          title: "Progression mise à jour",
-          message: `Progression mise à jour à ${newPercentage}%`,
-          duration: 3000
-        });
-      } else {
-        throw new Error("Erreur lors de la mise à jour");
-      }
     } catch (error) {
-      addNotification({
+      createPersistentNotification({
         type: "error",
         title: "Erreur",
         message: "Impossible de mettre à jour la progression",
@@ -363,31 +332,18 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         lastActivityAt: new Date().toISOString()
       };
 
-      const response = await fetch("/api/courses/progress", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId,
-          favorite: newFavoriteState,
-          lastActivityAt: new Date().toISOString()
-        })
+      await updateProgress('/api/courses/progress', updatedProgress);
+      setProgress(updatedProgress);
+      onProgressUpdate?.(updatedProgress);
+      
+      createPersistentNotification({
+        type: "success",
+        title: "Favoris mis à jour",
+        message: newFavoriteState ? "Cours ajouté aux favoris" : "Cours retiré des favoris",
+        duration: 3000
       });
-
-      if (response.ok) {
-        setProgress(updatedProgress);
-        onProgressUpdate?.(updatedProgress);
-        
-        addNotification({
-          type: "success",
-          title: "Favoris mis à jour",
-          message: newFavoriteState ? "Cours ajouté aux favoris" : "Cours retiré des favoris",
-          duration: 3000
-        });
-      } else {
-        throw new Error("Erreur lors de la mise à jour");
-      }
     } catch (error) {
-      addNotification({
+      createPersistentNotification({
         type: "error",
         title: "Erreur",
         message: "Impossible de mettre à jour les favoris",
@@ -423,22 +379,12 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         console.log(`Sauvegarde dans le palier ${currentMilestone.percentage}% (ID: ${currentMilestone.id})`);
         
         // Mettre à jour le palier avec les données actuelles
-        const response = await fetch(`/api/courses/milestones/${currentMilestone.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            timeSpentAtMilestone: data.timeSpentAtMilestone,
-            positionAtMilestone: data.positionAtMilestone,
-            notesAtMilestone: data.notesAtMilestone,
-            lastUpdatedAt: new Date().toISOString()
-          })
+        await saveProgress(`/api/courses/milestones/${currentMilestone.id}`, {
+          timeSpentAtMilestone: data.timeSpentAtMilestone,
+          positionAtMilestone: data.positionAtMilestone,
+          notesAtMilestone: data.notesAtMilestone,
+          lastUpdatedAt: new Date().toISOString()
         });
-
-        if (response.ok) {
-          console.log(`Palier ${currentMilestone.percentage}% mis à jour avec succès`);
-        } else {
-          console.error(`Erreur mise à jour palier ${currentMilestone.percentage}%:`, await response.text());
-        }
       } else {
         console.log(`Aucun palier en cours trouvé pour la progression ${currentProgress}%`);
       }
@@ -494,42 +440,25 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         lastActivityAt: new Date().toISOString()
       };
 
-      const response = await fetch("/api/courses/progress", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId,
-          timeSpent: localTimeSpent,
-          currentPosition: localPosition,
-          notes: localNotes,
-          lastActivityAt: new Date().toISOString()
-        })
+      await saveProgress('/api/courses/progress', updatedProgress);
+
+      // Sauvegarder aussi dans le palier en cours si applicable
+      await saveToCurrentMilestone({
+        timeSpentAtMilestone: localTimeSpent,
+        positionAtMilestone: localPosition,
+        notesAtMilestone: localNotes
       });
 
-      if (response.ok) {
-        setProgress(updatedProgress);
-        onProgressUpdate?.(updatedProgress);
-        
-        // Sauvegarder aussi dans le palier en cours si applicable
-        await saveToCurrentMilestone({
-          timeSpentAtMilestone: localTimeSpent,
-          positionAtMilestone: localPosition,
-          notesAtMilestone: localNotes
-        });
-
-        setIsFormDirty(false);
-        
-        addNotification({
-          type: "success",
-          title: "Progression sauvegardée",
-          message: "Vos modifications ont été sauvegardées avec succès",
-          duration: 3000
-        });
-      } else {
-        throw new Error("Erreur lors de la sauvegarde");
-      }
+      setIsFormDirty(false);
+      
+      createPersistentNotification({
+        type: "success",
+        title: "Progression sauvegardée",
+        message: "Vos modifications ont été sauvegardées avec succès",
+        duration: 3000
+      });
     } catch (error) {
-      addNotification({
+      createPersistentNotification({
         type: "error",
         title: "Erreur",
         message: "Impossible de sauvegarder les modifications",

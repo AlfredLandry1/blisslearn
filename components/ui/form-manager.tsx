@@ -3,17 +3,22 @@
 import React from "react";
 import { useUIStore } from "@/stores/uiStore";
 
-// Hook utilitaire pour gérer les formulaires
+// Hook utilitaire pour gérer les formulaires - SIMPLIFIÉ
 export const useFormManager = (formKey: string) => {
   const { 
     formData, 
     setFormData, 
     updateFormData, 
     clearFormData, 
-    getFormData 
+    getFormData,
+    setLoading,
+    clearLoading,
+    setError,
+    clearError
   } = useUIStore();
 
-  const form = getFormData(formKey);
+  // ✅ SIMPLIFIÉ : Utiliser directement les données du store
+  const form = formData[formKey] || {};
 
   return {
     // Données du formulaire
@@ -44,10 +49,10 @@ export const useFormManager = (formKey: string) => {
       const { onSuccess, onError, loadingKey, errorKey } = options || {};
       
       if (loadingKey) {
-        useUIStore.getState().setLoading(loadingKey, true);
+        setLoading(loadingKey, true);
       }
       if (errorKey) {
-        useUIStore.getState().clearError(errorKey);
+        clearError(errorKey);
       }
 
       try {
@@ -57,19 +62,19 @@ export const useFormManager = (formKey: string) => {
       } catch (error) {
         if (onError) onError(error);
         if (errorKey) {
-          useUIStore.getState().setError(errorKey, error instanceof Error ? error.message : "Une erreur est survenue");
+          setError(errorKey, error instanceof Error ? error.message : "Une erreur est survenue");
         }
         throw error;
       } finally {
         if (loadingKey) {
-          useUIStore.getState().setLoading(loadingKey, false);
+          clearLoading(loadingKey);
         }
       }
     }
   };
 };
 
-// Composant de champ de formulaire avec gestion automatique
+// Composant de champ de formulaire avec gestion automatique - SIMPLIFIÉ
 interface FormFieldProps {
   formKey: string;
   field: string;
@@ -87,11 +92,12 @@ export const FormField: React.FC<FormFieldProps> = ({
   children,
   errorKey
 }) => {
-  const { getField, updateField } = useFormManager(formKey);
-  const { getError } = useUIStore();
+  const { updateField } = useFormManager(formKey);
+  const { errors } = useUIStore();
   
-  const value = getField(field);
-  const error = errorKey ? getError(errorKey) || undefined : undefined;
+  // ✅ SIMPLIFIÉ : Utiliser directement les données du store
+  const value = useUIStore((state) => state.formData[formKey]?.[field]);
+  const error = errorKey ? errors[errorKey] : undefined;
 
   const handleChange = (newValue: any) => {
     updateField(field, newValue);
@@ -108,7 +114,7 @@ export const FormField: React.FC<FormFieldProps> = ({
   );
 };
 
-// Composant de formulaire avec gestion automatique
+// Composant de formulaire avec gestion automatique - SIMPLIFIÉ
 interface FormProps {
   formKey: string;
   children: React.ReactNode;
@@ -126,10 +132,10 @@ export const Form: React.FC<FormProps> = ({
   errorKey,
   className = ""
 }) => {
-  const { form, submitForm } = useFormManager(formKey);
-  const { isKeyLoading } = useUIStore();
+  const { submitForm } = useFormManager(formKey);
   
-  const loading = loadingKey ? isKeyLoading(loadingKey) : false;
+  // ✅ SIMPLIFIÉ : Utiliser directement les données du store
+  const loading = loadingKey ? useUIStore((state) => state.loadingStates[loadingKey] || false) : false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,10 +151,12 @@ export const Form: React.FC<FormProps> = ({
   );
 };
 
-// Hook pour la validation de formulaires
+// Hook pour la validation de formulaires - SIMPLIFIÉ
 export const useFormValidation = (formKey: string, validationSchema?: any) => {
-  const { form } = useFormManager(formKey);
-  const { setError, clearError } = useUIStore();
+  const { formData, setError, clearError } = useUIStore();
+  
+  // ✅ SIMPLIFIÉ : Utiliser directement les données du store
+  const form = formData[formKey] || {};
 
   const validateField = (field: string, value: any) => {
     if (!validationSchema || !validationSchema[field]) return true;

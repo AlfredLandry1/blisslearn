@@ -20,7 +20,6 @@ import { useCourseStore } from "@/stores/courseStore";
 import { format, addDays, isToday, isTomorrow } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
-
 interface Event {
   id: string;
   title: string;

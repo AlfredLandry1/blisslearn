@@ -6,7 +6,7 @@ import { useEffect, useRef, useMemo } from "react";
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
-  requireOnboarding?: boolean; // true = redirige vers onboarding si pas complété, false = redirige vers dashboard si complété
+  requireOnboarding?: boolean; // true = redirige vers onboarding si pas complété, false = redirige vers onboarding si pas complété, mais ne redirige PAS vers dashboard si complété
 }
 
 export function OnboardingGuard({ children, requireOnboarding = false }: OnboardingGuardProps) {
@@ -26,6 +26,17 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
 
     if (isLoading) return;
 
+    // Debug logs
+    console.log("🔍 OnboardingGuard Debug:", {
+      isAuthenticated,
+      isLoading,
+      isUnauthenticated,
+      hasCompletedOnboarding,
+      requireOnboarding,
+      sessionUser: session?.user,
+      sessionOnboardingCompleted: session?.user?.onboardingCompleted
+    });
+
     if (isUnauthenticated) {
       hasRedirected.current = true;
       router.push("/auth/login");
@@ -33,17 +44,27 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
     }
 
     if (isAuthenticated && session?.user) {
-      if (requireOnboarding && !hasCompletedOnboarding) {
-        // L'utilisateur doit compléter l'onboarding
+      // Si l'onboarding n'est pas complété, rediriger vers onboarding (peu importe requireOnboarding)
+      if (!hasCompletedOnboarding) {
+        console.log("🔄 Redirection vers onboarding (onboarding non complété)");
         hasRedirected.current = true;
         router.push("/onboarding");
         return;
       }
 
-      if (!requireOnboarding && hasCompletedOnboarding) {
-        // L'utilisateur a déjà complété l'onboarding, rediriger vers dashboard
+      // Si requireOnboarding=true et onboarding complété, rediriger vers dashboard
+      // (pour les pages qui nécessitent l'onboarding mais ne sont pas le dashboard)
+      if (requireOnboarding && hasCompletedOnboarding) {
+        console.log("🔄 Redirection vers dashboard (requireOnboarding=true et onboarding complété)");
         hasRedirected.current = true;
         router.push("/dashboard");
+        return;
+      }
+
+      // Si requireOnboarding=false et onboarding complété, NE PAS rediriger
+      // (pour les pages comme my-courses, explorer, etc.)
+      if (!requireOnboarding && hasCompletedOnboarding) {
+        console.log("✅ Accès autorisé (requireOnboarding=false et onboarding complété)");
         return;
       }
     }

@@ -4,9 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
   // provider = "mysql"
-  // url      = "mysql://root:@localhost:3306/blisslearn-db"
+  url      = env("DATABASE_URL")
 }
 
 model account {

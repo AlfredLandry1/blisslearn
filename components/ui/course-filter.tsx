@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/loading/spinner";
 import {
   Filter,
   Search,
@@ -80,6 +81,7 @@ interface CourseFilterProps {
   variant?: "explorer" | "my-courses";
   className?: string;
   isMobile?: boolean;
+  isLoading?: boolean;
 }
 
 const defaultFilters: CourseFilters = {
@@ -172,13 +174,14 @@ export function CourseFilter({
   variant = "explorer",
   className,
   isMobile = false,
+  isLoading = false,
 }: CourseFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [localFilters, setLocalFilters] = useState<CourseFilters>(filters);
-  const [searchValue, setSearchValue] = useState(filters.search);
+  const [localFilters, setLocalFilters] = useState<CourseFilters>(() => filters);
+  const [searchValue, setSearchValue] = useState(() => filters.search);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // ✅ OPTIMISÉ : Synchronisation plus efficace
+  // ✅ CORRIGÉ : Synchronisation plus efficace sans dépendances instables
   useEffect(() => {
     setLocalFilters(filters);
     setSearchValue(filters.search);
@@ -201,12 +204,12 @@ export function CourseFilter({
     setHasUnsavedChanges(true);
   }, []);
 
-  // ✅ OPTIMISÉ : Callbacks mémorisés
+  // ✅ CORRIGÉ : Callbacks mémorisés sans dépendances instables
   const applyFilters = useCallback(() => {
     onFiltersChange(localFilters);
     setHasUnsavedChanges(false);
     setIsOpen(false);
-  }, [localFilters, onFiltersChange]);
+  }, [localFilters]);
 
   const resetFilters = useCallback(() => {
     setLocalFilters(defaultFilters);
@@ -214,7 +217,7 @@ export function CourseFilter({
     setHasUnsavedChanges(false);
     onReset();
     setIsOpen(false);
-  }, [onReset]);
+  }, []);
 
   // ✅ OPTIMISÉ : Calculs mémorisés
   const hasActiveFilters = useMemo(() => 
@@ -227,7 +230,7 @@ export function CourseFilter({
       ([key, value]) => value !== defaultFilters[key as keyof CourseFilters]
     ).length, [filters]);
 
-  const FilterContent = () => (
+    const FilterContent = () => (
     <div className="space-y-6">
       {/* Recherche */}
       <div className="space-y-2">
@@ -698,40 +701,37 @@ export function CourseFilter({
     );
   }
 
-  // Version desktop avec Popover
+  // Version desktop avec bouton et card conditionnelle
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn(
-            "flex items-center gap-2 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200",
-            hasActiveFilters && "border-blue-500 text-blue-400 bg-blue-500/10",
-            hasUnsavedChanges && "border-yellow-500 text-yellow-400 bg-yellow-500/10",
-            className
-          )}
-        >
-          <Filter className="w-4 h-4" />
-          <span>Filtres</span>
-          {hasActiveFilters && (
-            <Badge variant="secondary" className="ml-1 bg-blue-500 text-white">
-              {activeFiltersCount}
-            </Badge>
-          )}
-          {hasUnsavedChanges && (
-            <Badge variant="secondary" className="ml-1 bg-yellow-500 text-white">
-              !
-            </Badge>
-          )}
-          <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[600px] p-0 bg-gray-900 border-gray-700 shadow-xl"
+    <div className="space-y-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "flex items-center gap-2 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200",
+          hasActiveFilters && "border-blue-500 text-blue-400 bg-blue-500/10",
+          hasUnsavedChanges && "border-yellow-500 text-yellow-400 bg-yellow-500/10",
+          className
+        )}
       >
-        <Card className="border-0 bg-transparent">
+        <Filter className="w-4 h-4" />
+        <span>Filtres</span>
+        {hasActiveFilters && (
+          <Badge variant="secondary" className="ml-1 bg-blue-500 text-white">
+            {activeFiltersCount}
+          </Badge>
+        )}
+        {hasUnsavedChanges && (
+          <Badge variant="secondary" className="ml-1 bg-yellow-500 text-white">
+            !
+          </Badge>
+        )}
+        <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
+      </Button>
+      
+      {isOpen && (
+        <Card className="border-gray-700">
           <CardHeader className="border-b border-gray-700 pb-4">
             <CardTitle className="text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-blue-400" />
@@ -742,7 +742,7 @@ export function CourseFilter({
             <FilterContent />
           </CardContent>
         </Card>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   );
 } 

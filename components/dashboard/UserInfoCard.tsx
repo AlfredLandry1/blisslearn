@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SafeAvatar } from "@/components/ui/safe-avatar";
 import {
   User,
   Edit,
@@ -15,6 +15,14 @@ import {
 import { DashboardCard } from "./DashboardCard";
 import SetPasswordModal from "@/components/auth/SetPasswordModal";
 import { useUIStore } from "@/stores/uiStore";
+import { useApiClient } from "@/hooks/useApiClient";
+
+interface PasswordStatus {
+  hasPassword: boolean;
+  isLoading: boolean;
+  isGoogleUser?: boolean;
+  needsPasswordSetup?: boolean;
+}
 
 export function UserInfoCard() {
   const { user, getOnboardingStatus, getUserName, getUserEmail, getUserImage, getPasswordStatus, updatePasswordStatus } = useUserStore();
@@ -22,44 +30,50 @@ export function UserInfoCard() {
   const router = useRouter();
   
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordStatus, setPasswordStatus] = useState({
+  const [passwordStatus, setPasswordStatus] = useState<PasswordStatus>({
     hasPassword: false,
-    isGoogleUser: false,
-    needsPasswordSetup: false
+    isLoading: true
   });
-  const [isLoadingPasswordStatus, setIsLoadingPasswordStatus] = useState(true);
 
   const onboardingCompleted = getOnboardingStatus();
   const userName = getUserName();
   const userEmail = getUserEmail();
   const userImage = getUserImage();
 
-  // Vérifier le statut du mot de passe au chargement
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    data: passwordData,
+    loading: passwordLoading,
+    error: passwordError,
+    get: checkPassword
+  } = useApiClient<PasswordStatus>({
+    onSuccess: (data) => {
+      setPasswordStatus(data);
+      updatePasswordStatus(data.hasPassword);
+    },
+    onError: (error) => {
+      console.error('Erreur vérification mot de passe:', error);
+      setPasswordStatus((prev: PasswordStatus) => ({ ...prev, isLoading: false }));
+    }
+  });
+
+  // ✅ OPTIMISÉ : Vérification du statut du mot de passe
   useEffect(() => {
-    const checkPasswordStatus = async () => {
+    const verifyPasswordStatus = async () => {
       // Éviter les appels répétés si on a déjà les données
-      if (passwordStatus.hasPassword !== false || isLoadingPasswordStatus === false) {
+      if (passwordStatus.hasPassword !== false || passwordStatus.isLoading === false) {
         return;
       }
 
       try {
-        const response = await fetch("/api/auth/check-password");
-        if (response.ok) {
-          const data = await response.json();
-          setPasswordStatus(data);
-          updatePasswordStatus(data.hasPassword);
-        }
+        await checkPassword('/api/auth/check-password');
       } catch (error) {
-        console.error("Erreur lors de la vérification du mot de passe:", error);
-      } finally {
-        setIsLoadingPasswordStatus(false);
+        // Erreur déjà gérée par le client API
       }
     };
 
-    if (user) {
-      checkPasswordStatus();
-    }
-  }, [user]); // Retirer updatePasswordStatus des dépendances
+    verifyPasswordStatus();
+  }, [checkPassword, passwordStatus.hasPassword, passwordStatus.isLoading]);
 
   const handleCompleteOnboarding = () => {
     router.push("/onboarding");
@@ -74,7 +88,7 @@ export function UserInfoCard() {
   };
 
   const handlePasswordSuccess = () => {
-    setPasswordStatus(prev => ({
+    setPasswordStatus((prev: PasswordStatus) => ({
       ...prev,
       hasPassword: true,
       needsPasswordSetup: false
@@ -122,7 +136,7 @@ export function UserInfoCard() {
       )}
 
       {/* Badge et bouton de mot de passe pour les utilisateurs Google */}
-      {!isLoadingPasswordStatus && passwordStatus.isGoogleUser && (
+      {!passwordLoading && passwordStatus.isGoogleUser && (
         <>
           <Badge
             variant={passwordStatus.hasPassword ? "default" : "secondary"}
@@ -161,12 +175,12 @@ export function UserInfoCard() {
         footer={footer}
       >
         <div className="flex flex-wrap sm:flex-row md:items-center gap-4">
-          <Avatar className="w-16 h-16 border-2 border-blue-500">
-            <AvatarImage src={userImage || ""} />
-            <AvatarFallback className="bg-gradient-to-r from-blue-500 to-blue-400 text-white text-2xl">
-              {userName.charAt(0) || "U"}
-            </AvatarFallback>
-          </Avatar>
+          <SafeAvatar 
+            src={userImage || ""} 
+            alt={userName}
+            size="xl"
+            className="border-2 border-blue-500"
+          />
           <div className="flex-1 min-w-0">
             <div className="text-white font-bold text-lg truncate">
               {userName}

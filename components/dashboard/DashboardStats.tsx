@@ -23,9 +23,10 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
-export function DashboardStats() {
-  const { globalStats, courses } = useCourseStore();
+export function DashboardStats({ globalStats: globalStatsProp }: { globalStats?: any } = {}) {
+  const { globalStats: globalStatsStore, courses } = useCourseStore();
   const { unreadCount } = useUIStore();
+  const globalStats = globalStatsProp || globalStatsStore;
 
   // Calculer les statistiques détaillées
   const stats = {

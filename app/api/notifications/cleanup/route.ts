@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 // Fonction pour supprimer automatiquement les anciennes notifications
@@ -27,7 +27,7 @@ async function cleanupOldNotifications() {
 }
 
 // POST - Déclencher le nettoyage manuellement
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     // Vérifier si c'est un appel autorisé (vous pouvez ajouter une authentification ici)
     const body = await request.json();

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 // GET - Vérifier une certification en ligne
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

@@ -8,11 +8,16 @@ import { ArrowLeft, ArrowRight, TrendingUp } from "lucide-react";
 import { StepProps, SKILL_LEVELS } from "../types";
 
 export function OnboardingStep3({ data, updateData, onNext, onPrev }: StepProps) {
+  // Protection contre data null/undefined
+  if (!data) {
+    return <div>Chargement...</div>;
+  }
+
   const handleSkillLevelChange = (value: string) => {
     updateData({ skillLevel: value });
   };
 
-  const isStepValid = data.skillLevel !== "";
+  const isStepValid = (data.skillLevel || "") !== "";
 
   return (
     <motion.div
@@ -32,7 +37,7 @@ export function OnboardingStep3({ data, updateData, onNext, onPrev }: StepProps)
       </div>
 
       <RadioGroup
-        value={data.skillLevel}
+        value={data.skillLevel || ""}
         onValueChange={handleSkillLevelChange}
         className="space-y-4"
       >
@@ -62,7 +67,7 @@ export function OnboardingStep3({ data, updateData, onNext, onPrev }: StepProps)
         ))}
       </RadioGroup>
 
-      {data.skillLevel && (
+      {(data.skillLevel || "") && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -70,7 +75,7 @@ export function OnboardingStep3({ data, updateData, onNext, onPrev }: StepProps)
         >
           <p className="text-purple-400 text-sm font-medium">
             Niveau sélectionné : <span className="text-purple-300">
-              {SKILL_LEVELS.find(level => level.value === data.skillLevel)?.label}
+              {SKILL_LEVELS.find(level => level.value === (data.skillLevel || ""))?.label}
             </span>
           </p>
         </motion.div>

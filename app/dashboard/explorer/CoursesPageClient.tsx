@@ -13,6 +13,7 @@ import { PaginationWithSelector } from "@/components/ui/pagination";
 import { useCoursePagination } from "@/hooks/usePagination";
 import { Search, Filter, X } from "lucide-react";
 import { PaginationInfo } from "@/stores/courseStore";
+import { useApiClient } from "@/hooks/useApiClient";
 
 function NativeSelect({ name, defaultValue, options, label }: { name: string; defaultValue?: string; options: string[]; label: string }) {
   return (
@@ -73,6 +74,17 @@ export default function CoursesPageClient({
   });
 
   // Fonction pour récupérer les cours avec pagination
+  const { get: fetchCoursesApi } = useApiClient<any>({
+    onSuccess: (data) => {
+      setExplorerCourses(data.courses);
+      setTotalItems(data.pagination.totalItems);
+      pagination.setTotalItems(data.pagination.totalItems);
+    },
+    onError: (error) => {
+      setError(errorKey, "Erreur lors du chargement des cours");
+    },
+  });
+
   const fetchCourses = async (page: number, limit?: number) => {
     setIsLoadingData(true);
     setLoading(loadingKey, true);
@@ -89,20 +101,7 @@ export default function CoursesPageClient({
         ...(sortBy && { sortBy }),
         ...(sortOrder && { sortOrder }),
       });
-
-      const response = await fetch(`/api/courses?${params}`);
-      
-      if (!response.ok) {
-        throw new Error("Erreur lors du chargement des cours");
-      }
-
-      const data = await response.json();
-      
-      // Mettre à jour le store global
-      setExplorerCourses(data.courses);
-      setTotalItems(data.pagination.totalItems);
-      pagination.setTotalItems(data.pagination.totalItems);
-      
+      await fetchCoursesApi(`/api/courses?${params}`);
     } catch (error) {
       setError(errorKey, "Erreur lors du chargement des cours");
     } finally {

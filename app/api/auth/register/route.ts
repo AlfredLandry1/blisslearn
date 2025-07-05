@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { name, email, password } = await request.json();
 
@@ -62,22 +62,36 @@ export async function POST(request: NextRequest) {
 
     // Si ce n'est pas l'admin de test, envoyer l'email de vérification
     if (email !== "alfred@test.mail") {
+      console.log("📧 Tentative d'envoi d'email de vérification pour:", email);
+      console.log("🔑 RESEND_API_KEY configurée:", !!process.env.RESEND_API_KEY);
+      console.log("🌐 NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
+      
       // Générer un token unique
       const token = randomBytes(32).toString("hex");
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-      await prisma.verificationtoken.create({
-        data: {
-          identifier: email,
+      
+      try {
+        await prisma.verificationtoken.create({
+          data: {
+            identifier: email,
+            token,
+            expires,
+          },
+        });
+        console.log("✅ Token de vérification créé en base");
+        
+        // Envoyer l'email de vérification
+        await sendVerificationEmail({
+          email,
+          name,
           token,
-          expires,
-        },
-      });
-      // Envoyer l'email de vérification
-      await sendVerificationEmail({
-        email,
-        name,
-        token,
-      });
+        });
+        console.log("✅ Email de vérification envoyé avec succès");
+      } catch (emailError) {
+        console.error("❌ Erreur lors de l'envoi de l'email de vérification:", emailError);
+        // Ne pas faire échouer l'inscription si l'email échoue
+        // L'utilisateur pourra demander un nouvel email de vérification
+      }
     }
 
     return NextResponse.json(

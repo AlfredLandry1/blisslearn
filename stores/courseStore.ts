@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Course, CourseWithProgress } from '@/types/next-auth';
+import { apiClient } from '@/lib/api-client';
 
 export interface GlobalStats {
   totalCourses: number;
@@ -55,6 +56,7 @@ interface CourseState {
   
   // Actions pour les favoris
   toggleFavorite: (courseId: number) => void;
+  toggleFavoriteWithSync: (courseId: number) => Promise<void>;
   updateCourseProgress: (courseId: number, progress: Partial<CourseWithProgress>) => void;
   removeCourse: (courseId: number) => void;
   
@@ -70,6 +72,9 @@ interface CourseState {
   getCourseById: (id: number) => CourseWithProgress | undefined;
   getStats: () => GlobalStats | null;
   getFilteredCourses: () => CourseWithProgress[];
+  
+  // ✅ NOUVEAU : Méthode pour supprimer un cours avec synchronisation API
+  removeCourseWithSync: (courseId: number) => Promise<void>;
 }
 
 const defaultFilters: CourseFilters = {
@@ -133,6 +138,24 @@ export const useCourseStore = create<CourseState>((set, get) => ({
         globalStats: updatedGlobalStats
       };
     });
+  },
+
+  // ✅ NOUVEAU : Méthode pour basculer les favoris avec synchronisation API
+  toggleFavoriteWithSync: async (courseId) => {
+    try {
+      const course = get().getCourseById(courseId);
+      if (!course) {
+        throw new Error('Cours non trouvé');
+      }
+      // Appeler l'API pour mettre à jour le favori
+      await apiClient.patch(`/api/courses/${courseId}/favorite`, { favorite: !course.favorite });
+      // Mettre à jour le store local
+      get().toggleFavorite(courseId);
+      console.log(`✅ Favori du cours ${courseId} mis à jour avec succès`);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du favori:', error);
+      throw error;
+    }
   },
 
   updateCourseProgress: (courseId, progress) => {
@@ -199,11 +222,24 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     });
   },
 
+  // ✅ NOUVEAU : Méthode pour supprimer un cours avec synchronisation API
+  removeCourseWithSync: async (courseId) => {
+    try {
+      // Appeler l'API pour supprimer le cours
+      await apiClient.delete(`/api/courses/${courseId}`);
+      // Mettre à jour le store local
+      get().removeCourse(courseId);
+      console.log(`✅ Cours ${courseId} supprimé avec succès`);
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression du cours:', error);
+      throw error;
+    }
+  },
+
   refreshCourses: async (filters = {}, page = 1, limit = 12) => {
     set({ isLoading: true, error: null });
     try {
       const currentFilters = { ...get().filters, ...filters };
-      
       // Construire les paramètres de requête
       const params = new URLSearchParams({
         page: page.toString(),
@@ -214,15 +250,8 @@ export const useCourseStore = create<CourseState>((set, get) => ({
           )
         )
       });
-
-      const response = await fetch(`/api/courses/my-courses?${params}`);
-      
-      if (!response.ok) {
-        throw new Error("Erreur lors du chargement des données");
-      }
-
-      const data = await response.json();
-
+      const response = await apiClient.get(`/api/courses/my-courses?${params}`);
+      const data = response.data as any;
       set({
         courses: data.courses || [],
         globalStats: data.globalStats || null,
@@ -241,12 +270,11 @@ export const useCourseStore = create<CourseState>((set, get) => ({
 
   refreshStats: async () => {
     try {
-      const response = await fetch("/api/courses/progress/stats");
+      const response = await apiClient.get("/api/courses/progress/stats");
       if (!response.ok) {
         throw new Error("Erreur lors du chargement des statistiques");
       }
-
-      const statsData = await response.json();
+      const statsData = response.data as any;
       set({ globalStats: statsData.globalStats });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Erreur inconnue" });

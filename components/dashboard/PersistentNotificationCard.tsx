@@ -21,10 +21,11 @@ import { Notification } from "@/lib/notificationService";
 
 interface PersistentNotificationCardProps {
   notification: Notification;
+  onShowDetail?: (notification: Notification) => void;
 }
 
-export function PersistentNotificationCard({ notification }: PersistentNotificationCardProps) {
-  const { markNotificationAsRead, deleteNotification } = useUIStore();
+export function PersistentNotificationCard({ notification, onShowDetail }: PersistentNotificationCardProps) {
+  const { markNotificationAsRead, deleteNotification, addNotification } = useUIStore();
   const [isDeleting, setIsDeleting] = useState(false);
 
   const getIcon = (type: string) => {
@@ -55,7 +56,19 @@ export function PersistentNotificationCard({ notification }: PersistentNotificat
 
   const handleMarkAsRead = async () => {
     if (!notification.read) {
-      await markNotificationAsRead(notification.id);
+      try {
+        await markNotificationAsRead(notification.id);
+      } catch (error: any) {
+        if (error?.message?.includes('404')) {
+          // On ignore l'erreur 404 (notification déjà supprimée)
+        } else {
+          addNotification({
+            type: 'error',
+            message: "Impossible de marquer la notification comme lue.",
+            duration: 5000
+          });
+        }
+      }
     }
   };
 
@@ -65,6 +78,12 @@ export function PersistentNotificationCard({ notification }: PersistentNotificat
       await deleteNotification(notification.id);
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
+      // Notification temporaire utilisateur
+      addNotification({
+        type: 'error',
+        message: `Erreur lors de la suppression de la notification: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+        duration: 5000
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -118,7 +137,11 @@ export function PersistentNotificationCard({ notification }: PersistentNotificat
               <div className="flex items-center gap-2">
                 <Clock className="w-3 h-3" />
                 <span>
-                  {format(new Date(notification.createdAt), 'dd/MM/yyyy à HH:mm', { locale: fr })}
+                  {notification.createdAt && !isNaN(Date.parse(notification.createdAt)) ? (
+                    format(new Date(notification.createdAt), 'dd/MM/yyyy à HH:mm', { locale: fr })
+                  ) : (
+                    'Date inconnue'
+                  )}
                 </span>
               </div>
               
@@ -144,11 +167,11 @@ export function PersistentNotificationCard({ notification }: PersistentNotificat
                 </Button>
               )}
 
-              {notification.actionUrl && (
+              {notification.actionUrl && onShowDetail && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleAction}
+                  onClick={() => onShowDetail(notification)}
                   className="h-7 text-xs border-blue-600 text-blue-400 hover:bg-blue-600/20"
                 >
                   <ExternalLink className="w-3 h-3 mr-1" />

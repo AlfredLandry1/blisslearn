@@ -26,57 +26,53 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import { LoadingButton } from "@/components/ui/loading-states";
 import { ErrorDisplay } from "@/components/ui/error-display";
+import { useApiClient } from "@/hooks/useApiClient";
 
 export function RegisterForm() {
-  const [success, setSuccess] = useState<string | null>(null);
-  const router = useRouter();
-  const { setLoading, clearLoading, setError, clearError } = useUIStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const loadingKey = "register-form";
-  const errorKey = "register-form-error";
+  const { createPersistentNotification } = useUIStore();
 
-  const handleSubmit = async (values: RegisterFormValues, { setSubmitting }: any) => {
-    setLoading(loadingKey, true);
-    clearError(errorKey);
-    setSuccess(null);
-    
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: `${values.firstName} ${values.lastName}`,
-          email: values.email,
-          password: values.password,
-        }),
+  const {
+    loading: registerLoading,
+    error: registerError,
+    post: registerUser
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setSuccess(true);
+      setError(null);
+      createPersistentNotification({
+        type: 'success',
+        title: 'Inscription',
+        message: 'Votre inscription a été réalisée avec succès'
       });
+    },
+    onError: (error) => {
+      setError(error.message);
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur d\'inscription',
+        message: error.message
+      });
+    }
+  });
 
-      const data = await response.json();
+  const handleSubmit = async (values: RegisterFormValues) => {
+    setIsLoading(true);
+    setError(null);
 
-      if (!response.ok) {
-        setError(errorKey, data.error || "Erreur lors de l'inscription");
-      } else {
-        if (data.verificationRequired) {
-          setSuccess("Compte créé avec succès ! Veuillez vérifier votre email pour activer votre compte.");
-          setTimeout(() => {
-            router.push("/auth/verify-email");
-          }, 2000);
-        } else {
-          setSuccess("Compte créé avec succès ! Redirection vers la connexion...");
-          setTimeout(() => {
-            router.push("/auth/login");
-          }, 2000);
-        }
-      }
-      
+    try {
+      await registerUser('/api/auth/register', {
+        name: `${values.firstName} ${values.lastName}`,
+        email: values.email,
+        password: values.password
+      });
     } catch (error) {
-      console.error("Erreur d'inscription:", error);
-      setError(errorKey, "Une erreur est survenue lors de l'inscription");
+      // Erreur déjà gérée par le client API
     } finally {
-      setLoading(loadingKey, false);
-      setSubmitting(false);
+      setIsLoading(false);
     }
   };
 
@@ -129,7 +125,7 @@ export function RegisterForm() {
         </CardHeader>
 
         <CardContent className="space-y-8 px-8 pb-8">
-          <ErrorDisplay errorKey={errorKey} variant="toast" />
+          {error && <ErrorDisplay errorKey={error} variant="toast" />}
 
           {/* Success Message */}
           {success && (
@@ -254,7 +250,7 @@ export function RegisterForm() {
                   {/* Submit Button */}
                   <div className="pt-4">
                     <LoadingButton
-                      loadingKey={loadingKey}
+                      loadingKey="register-form"
                       type="submit"
                       disabled={isSubmitting || !isValid}
                       className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 text-base font-medium transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"

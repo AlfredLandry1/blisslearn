@@ -12,6 +12,8 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "db:test": "node tests/test-database.js",
+    "import:courses": "node scripts/import-courses.js",
     "cleanup:notifications": "node scripts/cleanup-notifications.js",
     "cleanup:users": "node scripts/cleanup-unverified-users.js"
   },

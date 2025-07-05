@@ -37,6 +37,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
+import { SafeAvatar } from "@/components/ui/safe-avatar";
 
 const navigationItems = [
   { name: "Accueil", href: "/", icon: Home },
@@ -51,7 +52,8 @@ export function Navigation() {
   const { data: session, status } = useSession();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const unreadCount = useUIStore((s) => s.notifications.filter((n: any) => !n.read).length);
+  // ✅ SIMPLIFIÉ : Utiliser directement les données du store
+  const { unreadCount } = useUIStore();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -67,6 +69,7 @@ export function Navigation() {
 
   return (
     <nav
+      id="navigation"
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
           ? "bg-gray-900/95 backdrop-blur-md border-b border-gray-800"
@@ -76,9 +79,9 @@ export function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
+          <Link href="/" className="flex items-center space-x-2 group" aria-label="Accueil - BlissLearn">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" aria-hidden="true" />
             </div>
             <span className="text-xl sm:text-2xl font-bold text-white group-hover:text-blue-300 transition-colors">
               BlissLearn
@@ -105,7 +108,12 @@ export function Navigation() {
               <>
                 {/* Notifications */}
                 <Link href="/dashboard/notifications">
-                  <Button variant="ghost" size="sm" className="relative">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="relative"
+                    aria-label={`Notifications (${unreadCount} non lues)`}
+                  >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
                       <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500">
@@ -118,14 +126,18 @@ export function Navigation() {
                 {/* Menu utilisateur */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name || ""} />
-                        <AvatarFallback className="bg-blue-600 text-white text-sm">
-                          {session?.user?.name?.charAt(0) || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
+                                    <Button 
+                  variant="ghost" 
+                  className="relative h-8 w-8 rounded-full"
+                  aria-label="Menu utilisateur"
+                >
+                  <SafeAvatar 
+                    src={session?.user?.image || ""} 
+                    alt={session?.user?.name || ""}
+                    size="sm"
+                    className="h-8 w-8"
+                  />
+                </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal">
@@ -175,7 +187,12 @@ export function Navigation() {
           <div className="lg:hidden">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-gray-300 hover:text-white"
+                  aria-label="Menu mobile"
+                >
                   <Menu className="w-6 h-6" />
                 </Button>
               </SheetTrigger>

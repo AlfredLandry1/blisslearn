@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PriceConverter } from "@/components/ui/PriceConverter";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface Course {
   id: number;
@@ -94,6 +95,21 @@ export default function CourseProgressPage() {
   const loadingKey = `course-progress-${courseId}`;
   const loading = isKeyLoading(loadingKey);
 
+  const {
+    get: getCourse,
+    delete: deleteCourse,
+  } = useApiClient<any>({
+    onError: (error) => {
+      setError("Impossible de charger les données du cours");
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Impossible de charger les données du cours",
+        duration: 5000
+      });
+    }
+  });
+
   useEffect(() => {
     if (courseId) {
       fetchCourseData();
@@ -104,30 +120,17 @@ export default function CourseProgressPage() {
     setLoading(loadingKey, true);
     try {
       const [courseResponse, progressResponse] = await Promise.all([
-        fetch(`/api/courses/${courseId}`),
-        fetch(`/api/courses/progress?courseId=${courseId}`)
+        getCourse(`/api/courses/${courseId}`),
+        getCourse(`/api/courses/progress?courseId=${courseId}`)
       ]);
-
-      if (courseResponse.ok && progressResponse.ok) {
-        const [courseData, progressData] = await Promise.all([
-          courseResponse.json(),
-          progressResponse.json()
-        ]);
-        
-        setCourse(courseData);
-        setProgress(progressData);
+      if (courseResponse?.data && progressResponse?.data) {
+        setCourse(courseResponse.data);
+        setProgress(progressResponse.data);
       } else {
         throw new Error("Erreur lors du chargement des données");
       }
     } catch (error) {
-      console.error("Erreur lors du chargement:", error);
-      setError("Impossible de charger les données du cours");
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de charger les données du cours",
-        duration: 5000
-      });
+      // Erreur déjà gérée par le client API
     } finally {
       setLoading(loadingKey, false);
     }
@@ -148,20 +151,14 @@ export default function CourseProgressPage() {
   const handleStopCourse = async () => {
     setIsStoppingCourse(true);
     try {
-      const response = await fetch(`/api/courses/progress?courseId=${courseId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" }
-      });
-
-      if (response.ok) {
+      const response = await deleteCourse(`/api/courses/progress?courseId=${courseId}`);
+      if (response?.data || response?.ok) {
         addNotification({
           type: "success",
           title: "Cours retiré",
           message: `"${course?.title}" a été retiré de vos cours en cours.`,
           duration: 3000
         });
-        
-        // Rediriger vers la page My Courses
         router.push("/dashboard/my-courses");
       } else {
         throw new Error("Erreur lors du retrait du cours");

@@ -10,8 +10,13 @@ import { ArrowLeft, ArrowRight, Settings } from "lucide-react";
 import { StepProps, COURSE_FORMATS, COURSE_DURATIONS, LANGUAGES } from "../types";
 
 export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps) {
+  // Protection contre data null/undefined
+  if (!data) {
+    return <div>Chargement...</div>;
+  }
+
   const handleFormatChange = (format: string, checked: boolean) => {
-    let newFormats = [...data.coursePreferences.format];
+    let newFormats = [...(data.coursePreferences?.format || [])];
     
     if (checked) {
       newFormats.push(format);
@@ -21,7 +26,7 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
     
     updateData({
       coursePreferences: {
-        ...data.coursePreferences,
+        ...(data.coursePreferences || {}),
         format: newFormats
       }
     });
@@ -30,7 +35,7 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
   const handleDurationChange = (duration: string) => {
     updateData({
       coursePreferences: {
-        ...data.coursePreferences,
+        ...(data.coursePreferences || {}),
         duration
       }
     });
@@ -39,15 +44,15 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
   const handleLanguageChange = (language: string) => {
     updateData({
       coursePreferences: {
-        ...data.coursePreferences,
+        ...(data.coursePreferences || {}),
         language
       }
     });
   };
 
-  const isStepValid = data.coursePreferences.format.length > 0 && 
-                     data.coursePreferences.duration !== "" && 
-                     data.coursePreferences.language !== "";
+  const isStepValid = (data.coursePreferences?.format || []).length > 0 && 
+                     (data.coursePreferences?.duration || "") !== "" && 
+                     (data.coursePreferences?.language || "") !== "";
 
   return (
     <motion.div
@@ -83,7 +88,7 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
               >
                 <Checkbox
                   id={format}
-                  checked={data.coursePreferences.format.includes(format)}
+                  checked={(data.coursePreferences?.format || []).includes(format)}
                   onCheckedChange={(checked) => handleFormatChange(format, checked as boolean)}
                   className="mt-1"
                 />
@@ -101,7 +106,7 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
             Durée idéale d'un cours *
           </Label>
           <RadioGroup
-            value={data.coursePreferences.duration}
+            value={data.coursePreferences?.duration || ""}
             onValueChange={handleDurationChange}
             className="space-y-3"
           >
@@ -137,7 +142,7 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
           <Label htmlFor="language" className="text-sm font-medium text-gray-300">
             Langue préférée *
           </Label>
-          <Select value={data.coursePreferences.language} onValueChange={handleLanguageChange}>
+          <Select value={data.coursePreferences?.language || ""} onValueChange={handleLanguageChange}>
             <SelectTrigger id="language" className="bg-gray-800/50 border-gray-600 text-white focus:border-teal-500 focus:ring-teal-500/20">
               <SelectValue placeholder="Sélectionnez une langue" />
             </SelectTrigger>
@@ -152,7 +157,7 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
         </div>
 
         {/* Résumé des préférences */}
-        {(data.coursePreferences.format.length > 0 || data.coursePreferences.duration || data.coursePreferences.language) && (
+        {((data.coursePreferences?.format || []).length > 0 || data.coursePreferences?.duration || data.coursePreferences?.language) && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -160,14 +165,14 @@ export function OnboardingStep6({ data, updateData, onNext, onPrev }: StepProps)
           >
             <p className="text-teal-400 text-sm font-medium mb-2">Vos préférences :</p>
             <div className="space-y-1 text-sm text-teal-300">
-              {data.coursePreferences.format.length > 0 && (
-                <p>• Formats : {data.coursePreferences.format.join(", ")}</p>
+              {(data.coursePreferences?.format || []).length > 0 && (
+                <p>• Formats : {(data.coursePreferences?.format || []).join(", ")}</p>
               )}
-              {data.coursePreferences.duration && (
-                <p>• Durée : {COURSE_DURATIONS.find(d => d.value === data.coursePreferences.duration)?.label}</p>
+              {data.coursePreferences?.duration && (
+                <p>• Durée : {COURSE_DURATIONS.find(d => d.value === data.coursePreferences?.duration)?.label}</p>
               )}
-              {data.coursePreferences.language && (
-                <p>• Langue : {data.coursePreferences.language}</p>
+              {data.coursePreferences?.language && (
+                <p>• Langue : {data.coursePreferences?.language}</p>
               )}
             </div>
           </motion.div>

@@ -1,58 +1,37 @@
-"use client";
+import { HomeClient } from "@/components/sections/HomeClient";
 
-import { Particles } from "@/components/ui/particles";
-import { Testimonials } from "@/components/ui/testimonials";
-import { Navigation, Footer } from "@/components/layout";
-import { ScrollToTop } from "@/components/ui/ScrollToTop";
-import {
-  HeroSection,
-  FeaturesSection,
-  StatsSection,
-  CTASection,
-  PricingSection,
-  AboutSection,
-} from "@/components/sections";
+// Métadonnées optimisées pour la page d'accueil
+export const metadata = {
+  title: "BlissLearn - Plateforme d'Apprentissage Intelligente",
+  description: "Découvrez BlissLearn, la plateforme d'apprentissage intelligente qui révolutionne l'éducation avec l'IA. Cours personnalisés, recommandations adaptatives et expérience d'apprentissage immersive.",
+  keywords: "apprentissage, éducation, cours en ligne, intelligence artificielle, formation, développement personnel",
+  openGraph: {
+    title: "BlissLearn - Plateforme d'Apprentissage Intelligente",
+    description: "Découvrez BlissLearn, la plateforme d'apprentissage intelligente qui révolutionne l'éducation avec l'IA.",
+    url: "https://styland-digital-blisslearn.vercel.app",
+    siteName: "BlissLearn",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "BlissLearn - Plateforme d'Apprentissage Intelligente",
+      },
+    ],
+    locale: "fr_FR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BlissLearn - Plateforme d'Apprentissage Intelligente",
+    description: "Découvrez BlissLearn, la plateforme d'apprentissage intelligente qui révolutionne l'éducation avec l'IA.",
+    images: ["/og-image.png"],
+  },
+  alternates: {
+    canonical: "https://styland-digital-blisslearn.vercel.app",
+  },
+};
 
 export default function Home() {
-  return (
-    <div className="min-h-screen bg-gray-950 text-white overflow-hidden scroll-smooth">
-      {/* Animated Background */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-20" />
-        <Particles />
-      </div>
-
-      {/* Navigation */}
-      <Navigation />
-
-      {/* Hero Section */}
-      <HeroSection />
-
-      {/* Features Section */}
-      <FeaturesSection />
-
-      {/* Testimonials Section */}
-      <div className="relative z-10">
-        <Testimonials />
-      </div>
-
-      {/* Stats Section */}
-      <StatsSection />
-
-      {/* CTA Section */}
-      <CTASection />
-
-      {/* Pricing Section */}
-      <PricingSection />
-
-      {/* About Section */}
-      <AboutSection />
-
-      {/* Footer */}
-      <Footer />
-
-      {/* Scroll to Top Button */}
-      <ScrollToTop />
-    </div>
-  );
+  return <HomeClient />;
 }

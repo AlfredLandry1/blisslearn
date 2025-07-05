@@ -22,6 +22,7 @@ import {
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useUIStore } from "@/stores/uiStore";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface VerificationResult {
   valid: boolean;
@@ -59,6 +60,20 @@ export default function VerifyCertificationPage() {
 
   const certificationId = params?.id as string;
 
+  const {
+    get: getVerification,
+  } = useApiClient<any>({
+    onError: (error) => {
+      setError(error.message || "Erreur lors de la vérification");
+      addNotification({
+        type: "error",
+        title: "Erreur de vérification",
+        message: error.message || "Impossible de vérifier le certificat",
+        duration: 5000
+      });
+    }
+  });
+
   useEffect(() => {
     verifyCertificate();
   }, [params.id]);
@@ -66,29 +81,21 @@ export default function VerifyCertificationPage() {
   const verifyCertificate = async () => {
     setLoading(loadingKey, true);
     try {
-      const response = await fetch(`/api/certifications/${params.id}/verify`);
-      if (response.ok) {
-        const data = await response.json();
+      const response = await getVerification(`/api/certifications/${params.id}/verify`);
+      const data = response?.data;
+      if (data) {
         setVerificationResult(data);
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Erreur lors de la vérification");
+        setError("Erreur lors de la vérification");
         addNotification({
           type: "error",
           title: "Erreur de vérification",
-          message: errorData.error || "Impossible de vérifier le certificat",
+          message: "Impossible de vérifier le certificat",
           duration: 5000
         });
       }
     } catch (error) {
-      console.error("Erreur lors de la vérification:", error);
-      setError("Erreur de connexion");
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Erreur de connexion lors de la vérification",
-        duration: 5000
-      });
+      // Erreur déjà gérée par le client API
     } finally {
       setLoading(loadingKey, false);
     }
@@ -312,7 +319,7 @@ export default function VerifyCertificationPage() {
                 
                 <Button 
                   variant="outline"
-                  onClick={() => window.open('https://blisslearn.com', '_blank')}
+                  onClick={() => window.open('https://styland-digital-blisslearn.vercel.app/', '_blank')}
                   className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />

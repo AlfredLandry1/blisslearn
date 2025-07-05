@@ -26,6 +26,7 @@ import {
   initialResetPasswordValues, 
   type ResetPasswordFormValues 
 } from "@/lib/validation-schemas";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface ResetPasswordFormProps {
   token: string;
@@ -37,7 +38,7 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
   const searchParams = useSearchParams();
   const tokenFromProps = searchParams?.get('token');
   
-  const { setLoading, clearLoading, setError, clearError, addNotification } = useUIStore();
+  const { setLoading, clearLoading, setError, clearError, createPersistentNotification } = useUIStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
@@ -47,116 +48,74 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
   const loadingKey = "reset-password-form";
   const errorKey = "reset-password-form-error";
 
-  // Vérifier la validité du token au chargement
-  useEffect(() => {
-    if (!tokenFromProps) {
+  const {
+    loading: validateLoading,
+    error: validateError,
+    get: validateToken
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setIsTokenValid(true);
+      setUserEmail(data.user?.email || "");
+    },
+    onError: (error) => {
       setIsTokenValid(false);
-      return;
+      setError(errorKey, error.message);
+      createPersistentNotification({
+        type: 'error',
+        title: 'Token invalide',
+        message: error.message
+      });
     }
+  });
 
-    const validateToken = async () => {
-      try {
-        const response = await fetch(`/api/auth/reset-password/validate?token=${tokenFromProps}`);
-        
-        if (!response.ok) {
-          setIsTokenValid(false);
-          return;
-        }
-
-        try {
-          const data = await response.json();
-          if (data.valid) {
-            setIsTokenValid(true);
-            setUserEmail(data.user?.email || "");
-          } else {
-            setIsTokenValid(false);
-          }
-        } catch (parseError) {
-          // Si on ne peut pas parser la réponse JSON, considérer le token comme invalide
-          setIsTokenValid(false);
-        }
-      } catch (error) {
-        // Gestion silencieuse des erreurs de validation
-        setIsTokenValid(false);
-      }
-    };
-
-    validateToken();
-  }, [tokenFromProps]);
-
-  const handleSubmit = async (values: ResetPasswordFormValues, { setSubmitting, resetForm }: any) => {
-    if (!tokenFromProps) return;
-
-    setLoading(loadingKey, true);
-    clearError(errorKey);
-    
-    try {
-      const response = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: tokenFromProps,
-          password: values.password,
-        }),
-      });
-
-      // Gérer les erreurs de réponse
-      if (!response.ok) {
-        let errorMessage = "Erreur lors de la réinitialisation du mot de passe";
-        
-        try {
-          const data = await response.json();
-          errorMessage = data.error || errorMessage;
-        } catch (parseError) {
-          // Si on ne peut pas parser la réponse JSON, utiliser le message par défaut
-        }
-        
-        setError(errorKey, errorMessage);
-        return;
-      }
-
-      // Traitement de la réponse réussie
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        // Si on ne peut pas parser la réponse JSON, utiliser des valeurs par défaut
-        data = { message: "Votre mot de passe a été réinitialisé avec succès. Un email de confirmation vous a été envoyé." };
-      }
-
+  const {
+    loading: resetLoading,
+    error: resetError,
+    post: resetPassword
+  } = useApiClient<any>({
+    onSuccess: (data) => {
       setIsPasswordReset(true);
-      resetForm();
-      
-      addNotification({
-        type: "success",
-        title: "Mot de passe mis à jour",
-        message: data.message || "Votre mot de passe a été réinitialisé avec succès. Un email de confirmation vous a été envoyé.",
-        duration: 5000
+      createPersistentNotification({
+        type: 'success',
+        title: 'Mot de passe réinitialisé',
+        message: 'Votre mot de passe a été réinitialisé avec succès'
       });
-
-      // Rediriger vers la page de connexion après 3 secondes
       setTimeout(() => {
         router.push("/auth/login");
       }, 3000);
-      
+    },
+    onError: (error) => {
+      setError(errorKey, error.message);
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur de réinitialisation',
+        message: error.message
+      });
+    }
+  });
+
+  useEffect(() => {
+    if (tokenFromProps) {
+      validateToken(`/api/auth/reset-password/validate?token=${tokenFromProps}`);
+    }
+  }, [tokenFromProps, validateToken]);
+
+  const handleSubmit = async (values: ResetPasswordFormValues) => {
+    setLoading(loadingKey, true);
+    setError(errorKey, String(Error));
+
+    try {
+      await resetPassword('/api/auth/reset-password', {
+        token: tokenFromProps,
+        password: values.password
+      });
     } catch (error) {
-      // Gestion des erreurs réseau ou autres erreurs
-      let errorMessage = "Impossible de réinitialiser le mot de passe";
-      
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        errorMessage = "Erreur de connexion. Vérifiez votre connexion internet et réessayez.";
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorKey, errorMessage);
+      // Erreur déjà gérée par le client API
     } finally {
       setLoading(loadingKey, false);
-      setSubmitting(false);
     }
   };
 
-  // Token invalide ou manquant
   if (isTokenValid === false) {
     return (
       <motion.div
@@ -249,7 +208,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
     );
   }
 
-  // Mot de passe réinitialisé avec succès
   if (isPasswordReset) {
     return (
       <motion.div
@@ -316,7 +274,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
     );
   }
 
-  // Chargement de la validation du token
   if (isTokenValid === null) {
     return (
       <motion.div
@@ -341,7 +298,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
     );
   }
 
-  // Formulaire de réinitialisation
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -397,7 +353,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
                   transition={{ duration: 0.6, delay: 0.5 }}
                   className="space-y-6"
                 >
-                  {/* Nouveau mot de passe */}
                   <div className="relative">
                     <FormikFieldWithIcon
                       name="password"
@@ -418,7 +373,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
                     </Button>
                   </div>
 
-                  {/* Confirmation du mot de passe */}
                   <div className="relative">
                     <FormikFieldWithIcon
                       name="confirmPassword"
@@ -439,7 +393,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
                     </Button>
                   </div>
 
-                  {/* Exigences du mot de passe */}
                   <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
                     <h4 className="text-sm font-medium text-gray-300 mb-2">Exigences du mot de passe :</h4>
                     <ul className="text-xs text-gray-400 space-y-1">
@@ -462,7 +415,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
                     </ul>
                   </div>
 
-                  {/* Bouton de soumission */}
                   <div className="pt-4">
                     <LoadingButton
                       loadingKey={loadingKey}
@@ -481,7 +433,6 @@ export default function ResetPasswordForm({ token, onSuccess }: ResetPasswordFor
             )}
           </Formik>
 
-          {/* Retour à la connexion */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

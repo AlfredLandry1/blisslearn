@@ -26,6 +26,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { MilestoneReportSidebar } from './MilestoneReportSidebar';
 import { FinalCourseReport } from './FinalCourseReport';
 import { useUIStore } from '@/stores/uiStore';
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface MilestoneProgressProps {
   courseId: number;
@@ -52,6 +53,20 @@ export function MilestoneProgress({
   const loadingKey = `milestone-progress-${courseId}`;
   const loading = isKeyLoading(loadingKey);
 
+  const {
+    get: getMilestones,
+    post: postMilestone,
+  } = useApiClient<any>({
+    onError: (error) => {
+      addNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Erreur lors de la requête API",
+        duration: 5000
+      });
+    }
+  });
+
   useEffect(() => {
     loadMilestones();
   }, [courseId]);
@@ -59,27 +74,13 @@ export function MilestoneProgress({
   const loadMilestones = async () => {
     setLoading(loadingKey, true);
     try {
-      const response = await fetch(`/api/courses/milestones?courseId=${courseId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMilestones(data.milestones);
-        setReports(data.reports);
-      } else {
-        addNotification({
-          type: "error",
-          title: "Erreur",
-          message: "Erreur lors du chargement des paliers",
-          duration: 5000
-        });
+      const response = await getMilestones(`/api/courses/milestones?courseId=${courseId}`);
+      if (response?.data) {
+        setMilestones(response.data.milestones);
+        setReports(response.data.reports);
       }
     } catch (error) {
-      console.error('Erreur chargement paliers:', error);
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Erreur lors du chargement des paliers",
-        duration: 5000
-      });
+      // Erreur déjà gérée par le client API
     } finally {
       setLoading(loadingKey, false);
     }
@@ -87,43 +88,28 @@ export function MilestoneProgress({
 
   const handleMilestoneValidation = async (formData: MilestoneFormData) => {
     if (!selectedMilestone) return;
-
     try {
-      const response = await fetch('/api/courses/milestones', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          courseId,
-          percentage: selectedMilestone,
-          formData
-        })
+      const response = await postMilestone('/api/courses/milestones', {
+        courseId,
+        percentage: selectedMilestone,
+        formData
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        toast.success(data.message);
+      if (response?.data) {
+        toast.success(response.data.message);
         setShowValidationForm(false);
         setSelectedMilestone(null);
-        
-        // Synchroniser avec le store global
         updateCourseProgress(courseId, {
           progressPercentage: selectedMilestone,
           timeSpent: formData.timeSpentAtMilestone,
           currentPosition: formData.positionAtMilestone,
         });
-        
-        // Recharger les données locales et globales
         await Promise.all([
           loadMilestones(),
           refreshStats()
         ]);
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Erreur lors de la validation');
       }
     } catch (error) {
-      console.error('Erreur validation palier:', error);
-      toast.error('Erreur lors de la validation du palier');
+      // Erreur déjà gérée par le client API
     }
   };
 
@@ -165,22 +151,13 @@ export function MilestoneProgress({
 
   const generateFinalReport = async () => {
     try {
-      const response = await fetch('/api/courses/milestones/generate-final-report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId })
-      });
-
-      if (response.ok) {
+      const response = await postMilestone('/api/courses/milestones/generate-final-report', { courseId });
+      if (response?.data) {
         toast.success('Rapport final généré avec succès !');
-        await loadMilestones(); // Recharger pour avoir le nouveau rapport
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Erreur lors de la génération du rapport');
+        await loadMilestones();
       }
     } catch (error) {
-      console.error('Erreur génération rapport final:', error);
-      toast.error('Erreur lors de la génération du rapport final');
+      // Erreur déjà gérée par le client API
     }
   };
 

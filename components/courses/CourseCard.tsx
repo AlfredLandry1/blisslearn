@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -46,6 +46,7 @@ import {
   formatNumber,
 } from "@/lib/utils";
 import { PriceConverter } from "@/components/ui/PriceConverter";
+import { useApiClient } from "@/hooks/useApiClient";
 
 export function CourseCard({
   course,
@@ -59,7 +60,7 @@ export function CourseCard({
   const [showStopDialog, setShowStopDialog] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isFavorite, setIsFavorite] = useState(course.favorite || false);
-  const { addNotification } = useUIStore();
+  const { createPersistentNotification } = useUIStore();
   const { updateCourseProgress, getCourseById, removeCourse, toggleFavorite, refreshCourses } =
     useCourseStore();
 
@@ -74,77 +75,46 @@ export function CourseCard({
   const extraInfo = extractCourseExtraInfo(displayCourse.extra);
   const skills = safeJsonParseArray(displayCourse.skills);
 
+  // ✅ MIGRATION : Client API pour les requêtes critiques
+  const {
+    post: postCourse,
+    delete: deleteCourse,
+    patch: patchCourse,
+  } = useApiClient<any>({
+    onError: (error) => {
+      createPersistentNotification({
+        type: "error",
+        title: "Erreur",
+        message: error.message || "Erreur lors de la requête API",
+        duration: 5000,
+      });
+    },
+  });
+
   const handleStartCourse = async () => {
     setIsUpdating(true);
     try {
-      console.log("🚀 Début handleStartCourse:", {
-        courseId: displayCourse.id,
-        courseTitle: displayCourse.title,
-        status: "in_progress",
-      });
-
       const requestBody = {
         courseId: displayCourse.id,
         status: "in_progress",
         startedAt: new Date().toISOString(),
       };
-
-      console.log("📤 Envoi de la requête:", {
-        url: "/api/courses/progress",
-        method: "POST",
-        body: requestBody,
-      });
-
-      const response = await fetch("/api/courses/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log("📥 Réponse reçue:", {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-      });
-
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log("✅ Données de réponse:", responseData);
-
+      const response = await postCourse("/api/courses/progress", requestBody);
+      if (response?.data) {
         updateCourseProgress(displayCourse.id, {
           status: "in_progress",
           progressPercentage: 0,
         });
-
         onCourseUpdate?.(displayCourse.id, "started");
-
-        addNotification({
+        createPersistentNotification({
           type: "success",
           title: "Cours ajouté !",
           message: `"${displayCourse.title}" a été ajouté à vos cours en cours.`,
           duration: 3000,
         });
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("❌ Erreur de réponse:", {
-          status: response.status,
-          statusText: response.statusText,
-          errorData,
-        });
-        throw new Error(
-          `Erreur ${response.status}: ${errorData.error || response.statusText}`
-        );
       }
     } catch (error) {
-      console.error("💥 Erreur dans handleStartCourse:", error);
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: `Impossible d'ajouter le cours: ${
-          error instanceof Error ? error.message : "Erreur inconnue"
-        }`,
-        duration: 5000,
-      });
+      // Erreur déjà gérée par le client API
     } finally {
       setIsUpdating(false);
     }
@@ -153,28 +123,18 @@ export function CourseCard({
   const handleStopCourse = async () => {
     setIsUpdating(true);
     try {
-      const response = await fetch(
-        `/api/courses/progress?courseId=${displayCourse.id}`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-
-      if (response.ok) {
+      const response = await deleteCourse(`/api/courses/progress?courseId=${displayCourse.id}`);
+      if (response?.data || response?.ok) {
         if (context === "my-courses") {
           removeCourse(displayCourse.id);
         }
-
         updateCourseProgress(displayCourse.id, {
           status: "not_started",
           progressPercentage: 0,
           currentPosition: "",
         });
-
         onCourseUpdate?.(displayCourse.id, "stopped");
-
-        addNotification({
+        createPersistentNotification({
           type: "success",
           title: "Cours retiré",
           message:
@@ -183,16 +143,9 @@ export function CourseCard({
               : `"${displayCourse.title}" a été marqué comme non commencé.`,
           duration: 3000,
         });
-      } else {
-        throw new Error("Erreur lors du retrait du cours");
       }
     } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de retirer le cours",
-        duration: 5000,
-      });
+      // Erreur déjà gérée par le client API
     } finally {
       setIsUpdating(false);
       setShowStopDialog(false);
@@ -202,27 +155,16 @@ export function CourseCard({
   const handleToggleFavorite = async () => {
     try {
       const newFavoriteState = !isFavorite;
-      
-      // Appel API pour persister en base de données
-      const response = await fetch("/api/courses/progress", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId: displayCourse.id,
-          favorite: newFavoriteState,
-          lastActivityAt: new Date().toISOString()
-        })
+      const response = await patchCourse("/api/courses/progress", {
+        courseId: displayCourse.id,
+        favorite: newFavoriteState,
+        lastActivityAt: new Date().toISOString(),
       });
-
-      if (response.ok) {
-        // Mettre à jour l'état local et le store
+      if (response?.data) {
         setIsFavorite(newFavoriteState);
         toggleFavorite(displayCourse.id);
-        
-        // Synchroniser le store avec la base de données
         await refreshCourses();
-        
-        addNotification({
+        createPersistentNotification({
           type: "success",
           title: newFavoriteState ? "Ajouté aux favoris" : "Retiré des favoris",
           message: `"${displayCourse.title}" ${
@@ -230,16 +172,9 @@ export function CourseCard({
           } vos favoris.`,
           duration: 2000,
         });
-      } else {
-        throw new Error("Erreur lors de la mise à jour");
       }
     } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de mettre à jour les favoris",
-        duration: 5000
-      });
+      // Erreur déjà gérée par le client API
     }
   };
 

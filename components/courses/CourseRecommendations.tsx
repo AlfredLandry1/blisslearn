@@ -14,11 +14,13 @@ import {
   Zap, 
   TrendingUp, 
   Clock, 
-  Users 
+  Users
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { ProgressTracker } from "./ProgressTracker";
 import { CourseCard } from "./CourseCard";
+import { useApiClient } from "@/hooks/useApiClient";
+import { useRecommendationMessage } from "@/hooks/usePersonalizedContent";
 
 interface Recommendation {
   id: number;
@@ -64,99 +66,88 @@ export function CourseRecommendations({
   const { data: session, status: authStatus } = useSession();
   const [recommendations, setRecommendations] = useState<RecommendationsData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { addNotification, setLoading, isKeyLoading } = useUIStore();
+  // Utilisation du hook IA personnalisé
+  const { recommendationMessage, loading: recommendationLoading } = useRecommendationMessage();
+
+  const { addNotification, setLoading, isKeyLoading, createPersistentNotification } = useUIStore();
   const loadingKey = "course-recommendations";
   const loading = isKeyLoading(loadingKey);
 
+  const {
+    data: recommendationsData,
+    loading: recommendationsLoading,
+    error: recommendationsError,
+    get: fetchRecommendations,
+    post: updateProgress
+  } = useApiClient<RecommendationsData>({
+    onSuccess: (data) => {
+      setRecommendations(data);
+      setLoading(loadingKey, false);
+      setError(null);
+    },
+    onError: (error) => {
+      setError(error.message);
+      setLoading(loadingKey, false);
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur de chargement',
+        message: 'Impossible de charger les recommandations'
+      });
+    }
+  });
+
   useEffect(() => {
     if (authStatus === "authenticated" && session?.user?.id) {
-      fetchRecommendations();
+      loadRecommendations();
     } else if (authStatus === "unauthenticated") {
       setLoading(loadingKey, false);
     }
   }, [authStatus, session?.user?.id]);
 
-  const fetchRecommendations = async () => {
-    setLoading(loadingKey, true);
+  const loadRecommendations = async () => {
     try {
-      const response = await fetch("/api/courses/recommendations");
-      if (response.ok) {
-        const data = await response.json();
-        setRecommendations(data);
-      } else {
-        throw new Error("Erreur lors du chargement des recommandations");
-      }
+      await fetchRecommendations('/api/courses/recommendations');
     } catch (error) {
-      console.error("Erreur lors du chargement des recommandations:", error);
-      setError("Impossible de charger les recommandations");
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de charger les recommandations",
-        duration: 5000
-      });
-    } finally {
-      setLoading(loadingKey, false);
+      // Erreur déjà gérée par le client API
     }
   };
 
   const handleRefresh = async () => {
-    setLoading(loadingKey, true);
+    setRefreshing(true);
     try {
-      const response = await fetch("/api/courses/recommendations?refresh=true");
-      if (response.ok) {
-        const data = await response.json();
-        setRecommendations(data);
-        addNotification({
-          type: "success",
-          title: "Recommandations mises à jour",
-          message: "Les recommandations ont été actualisées",
-          duration: 3000
-        });
-      } else {
-        throw new Error("Erreur lors de la mise à jour");
-      }
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour des recommandations:", error);
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible de mettre à jour les recommandations",
-        duration: 5000
+      await fetchRecommendations('/api/courses/recommendations?refresh=true');
+      createPersistentNotification({
+        type: 'info',
+        title: 'Recommandation',
+        message: 'Recommandation de cours mise à jour'
       });
+    } catch (error) {
+      // Erreur déjà gérée par le client API
     } finally {
-      setLoading(loadingKey, false);
+      setRefreshing(false);
     }
   };
 
-  const handleStartCourse = async (course: Recommendation) => {
+  const handleStartCourse = async (courseId: string) => {
     try {
-      const response = await fetch("/api/courses/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId: course.id,
-          status: "in_progress",
-          startedAt: new Date().toISOString()
-        })
+      await updateProgress('/api/courses/progress', {
+        courseId,
+        status: 'in_progress',
+        startedAt: new Date().toISOString()
       });
 
-      if (response.ok) {
-        addNotification({
-          type: "success",
-          title: "Cours ajouté !",
-          message: `"${course.title}" a été ajouté à vos cours en cours.`,
-          duration: 3000
-        });
-      }
-    } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Impossible d'ajouter le cours",
-        duration: 5000
+      createPersistentNotification({
+        type: 'success',
+        title: 'Cours ajouté !',
+        message: 'Le cours a été ajouté à vos cours en cours'
       });
+
+      // Recharger les recommandations après avoir commencé un cours
+      await loadRecommendations();
+    } catch (error) {
+      // Erreur déjà gérée par le client API
     }
   };
 
@@ -185,42 +176,6 @@ export function CourseRecommendations({
         return "bg-purple-900/40 text-purple-300 border-purple-500/30";
     }
   };
-
-  if (authStatus === "loading" || loading || isLoading) {
-    return (
-      <div className={`space-y-4 ${className}`}>
-        {showTitle && (
-          <div className="text-center">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
-              {propTitle}
-            </h2>
-            <p className="text-gray-400 text-sm sm:text-base lg:text-lg">
-              {propSubtitle}
-            </p>
-          </div>
-        )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="animate-pulse">
-              <div className="bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-5 h-64 sm:h-72 lg:h-80">
-                <div className="h-4 bg-gray-700 rounded mb-3"></div>
-                <div className="h-3 bg-gray-700 rounded mb-2"></div>
-                <div className="h-3 bg-gray-700 rounded mb-4 w-3/4"></div>
-                <div className="flex gap-2 mb-4">
-                  <div className="h-6 bg-gray-700 rounded w-16"></div>
-                  <div className="h-6 bg-gray-700 rounded w-12"></div>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-2 bg-gray-700 rounded"></div>
-                  <div className="h-2 bg-gray-700 rounded w-2/3"></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   // Si des cours sont fournis en props, utiliser ceux-ci
   if (courses && courses.length > 0) {
@@ -367,7 +322,7 @@ export function CourseRecommendations({
                 <Button
                   size="sm"
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm h-8 sm:h-9"
-                  onClick={() => handleStartCourse(course)}
+                  onClick={() => handleStartCourse(course.id.toString())}
                 >
                   <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                   Commencer

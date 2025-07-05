@@ -13,8 +13,13 @@ export function OnboardingStep1({ data, updateData, onNext, onPrev, isLoading }:
   const [customObjective, setCustomObjective] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
+  // Protection contre data null/undefined
+  if (!data) {
+    return <div>Chargement...</div>;
+  }
+
   const handleObjectiveChange = (objective: string, checked: boolean) => {
-    let newObjectives = [...data.learningObjectives];
+    let newObjectives = [...(data.learningObjectives || [])];
     
     if (objective === "Autre") {
       if (checked) {
@@ -37,14 +42,14 @@ export function OnboardingStep1({ data, updateData, onNext, onPrev, isLoading }:
 
   const handleCustomObjectiveChange = (value: string) => {
     setCustomObjective(value);
-    let newObjectives = data.learningObjectives.filter(obj => !LEARNING_OBJECTIVES.includes(obj));
+    let newObjectives = (data.learningObjectives || []).filter(obj => !LEARNING_OBJECTIVES.includes(obj));
     if (value.trim()) {
       newObjectives.push(value.trim());
     }
     updateData({ learningObjectives: newObjectives });
   };
 
-  const isStepValid = data.learningObjectives.length > 0;
+  const isStepValid = (data.learningObjectives || []).length > 0;
 
   return (
     <motion.div
@@ -74,7 +79,7 @@ export function OnboardingStep1({ data, updateData, onNext, onPrev, isLoading }:
           >
             <Checkbox
               id={objective}
-              checked={data.learningObjectives.includes(objective) || (objective === "Autre" && showCustomInput)}
+              checked={(data.learningObjectives || []).includes(objective) || (objective === "Autre" && showCustomInput)}
               onCheckedChange={(checked) => handleObjectiveChange(objective, checked as boolean)}
               className="mt-1"
             />
@@ -104,7 +109,7 @@ export function OnboardingStep1({ data, updateData, onNext, onPrev, isLoading }:
         )}
       </div>
 
-      {data.learningObjectives.length > 0 && (
+      {(data.learningObjectives || []).length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -112,7 +117,7 @@ export function OnboardingStep1({ data, updateData, onNext, onPrev, isLoading }:
         >
           <p className="text-blue-400 text-sm font-medium mb-2">Objectifs sélectionnés :</p>
           <div className="flex flex-wrap gap-2">
-            {data.learningObjectives.map((objective, index) => (
+            {(data.learningObjectives || []).map((objective, index) => (
               <span
                 key={index}
                 className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded"

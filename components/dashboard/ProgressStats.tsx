@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { StatsCard, ProgressBarWithLabel, SectionHeader } from "@/components/ui";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface ProgressStats {
   totalCourses: number;
@@ -33,33 +34,44 @@ interface ProgressStats {
 export function ProgressStats() {
   const [stats, setStats] = useState<ProgressStats | null>(null);
 
-  const { addNotification, setLoading, isKeyLoading } = useUIStore();
+  const { createPersistentNotification, setLoading, isKeyLoading } = useUIStore();
   const loadingKey = "progress-stats";
   const loading = isKeyLoading(loadingKey);
+
+  const {
+    get: getStats,
+  } = useApiClient<any>({
+    onError: (error) => {
+      createPersistentNotification({
+        type: 'error',
+        title: 'Erreur',
+        message: 'Impossible de charger les statistiques',
+        duration: 5000
+      });
+    }
+  });
 
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(loadingKey, true);
       try {
-        const response = await fetch("/api/courses/progress/stats");
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
+        const response = await getStats("/api/courses/progress/stats");
+        if (response?.data) {
+          setStats(response.data);
+          await createPersistentNotification({
+            type: 'info',
+            title: 'Statistiques',
+            message: 'Statistiques mises à jour'
+          });
         }
       } catch (error) {
-        addNotification({
-          type: "error",
-          title: "Erreur",
-          message: "Impossible de charger les statistiques",
-          duration: 5000
-        });
+        // Erreur déjà gérée par le client API
       } finally {
         setLoading(loadingKey, false);
       }
     };
-
     fetchStats();
-  }, [addNotification, setLoading, loadingKey]);
+  }, [createPersistentNotification, setLoading, loadingKey]);
 
   if (loading || !stats) {
     return (

@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useUIStore } from "@/stores/uiStore";
 import { LoadingButton } from "@/components/ui/loading-states";
 import { ErrorDisplay } from "@/components/ui/error-display";
+import { useApiClient } from "@/hooks/useApiClient";
 import { 
   forgotPasswordSchema, 
   initialForgotPasswordValues, 
@@ -29,87 +30,43 @@ interface ForgotPasswordFormProps {
 }
 
 export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
-  const { setLoading, clearLoading, setError, clearError, addNotification } = useUIStore();
+  const { addNotification } = useUIStore();
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [userEmail, setUserEmail] = useState("");
 
-  const loadingKey = "forgot-password-form";
-  const errorKey = "forgot-password-form-error";
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    loading: forgotPasswordLoading,
+    error: forgotPasswordError,
+    post: sendResetEmail
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setIsEmailSent(true);
+      setUserEmail(data.email || "");
+      addNotification({
+        type: 'success',
+        title: 'Email envoyé !',
+        message: data.message || 'Un email de réinitialisation a été envoyé à votre adresse email.'
+      });
+    },
+    onError: (error) => {
+      addNotification({
+        type: 'error',
+        title: 'Erreur',
+        message: error.message
+      });
+    }
+  });
 
   const handleSubmit = async (values: ForgotPasswordFormValues, { setSubmitting, resetForm }: any) => {
-    setLoading(loadingKey, true);
-    clearError(errorKey);
-    
     try {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: values.email,
-        }),
+      await sendResetEmail('/api/auth/forgot-password', {
+        email: values.email
       });
-
-      // Gérer les erreurs de réponse
-      if (!response.ok) {
-        let errorMessage = "Erreur lors de l'envoi de l'email";
-        
-        try {
-          const data = await response.json();
-          errorMessage = data.error || errorMessage;
-        } catch (parseError) {
-          // Si on ne peut pas parser la réponse JSON, utiliser le message par défaut
-        }
-        
-        // Gestion spécifique des erreurs selon le code de statut
-        if (response.status === 404) {
-          errorMessage = "Aucun compte trouvé avec cette adresse email. Vérifiez votre saisie ou créez un nouveau compte.";
-        } else if (response.status === 400) {
-          if (errorMessage.includes("Google")) {
-            errorMessage = "Ce compte utilise la connexion Google. Utilisez le bouton 'Se connecter avec Google' pour accéder à votre compte.";
-          } else if (errorMessage.includes("Format")) {
-            errorMessage = "Format d'email invalide. Veuillez saisir une adresse email valide.";
-          }
-        } else if (response.status === 500) {
-          errorMessage = "Erreur serveur. Veuillez réessayer plus tard ou contactez notre support.";
-        }
-        
-        setError(errorKey, errorMessage);
-        return;
-      }
-
-      // Traitement de la réponse réussie
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        // Si on ne peut pas parser la réponse JSON, utiliser des valeurs par défaut
-        data = { message: "Un email de réinitialisation a été envoyé à votre adresse email." };
-      }
-
-      setIsEmailSent(true);
-      setUserEmail(values.email);
       resetForm();
-      
-      addNotification({
-        type: "success",
-        title: "Email envoyé",
-        message: data.message || "Un email de réinitialisation a été envoyé à votre adresse email.",
-        duration: 5000
-      });
-      
     } catch (error) {
-      // Gestion des erreurs réseau ou autres erreurs
-      let errorMessage = "Impossible d'envoyer l'email de réinitialisation";
-      
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        errorMessage = "Erreur de connexion. Vérifiez votre connexion internet et réessayez.";
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorKey, errorMessage);
+      // Erreur déjà gérée par le client API
     } finally {
-      setLoading(loadingKey, false);
       setSubmitting(false);
     }
   };
@@ -261,7 +218,7 @@ export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProp
         </CardHeader>
 
         <CardContent className="space-y-8 px-8 pb-8">
-          <ErrorDisplay errorKey={errorKey} variant="inline" />
+          {forgotPasswordError && <ErrorDisplay errorKey={forgotPasswordError.message} variant="inline" />}
 
           <Formik
             initialValues={initialForgotPasswordValues}
@@ -289,7 +246,7 @@ export default function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProp
                   {/* Submit Button */}
                   <div className="pt-4">
                     <LoadingButton
-                      loadingKey={loadingKey}
+                      loadingKey="forgot-password-form"
                       type="submit"
                       disabled={isSubmitting || !isValid}
                       className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-base font-medium transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -19,9 +19,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
-export function QuickStats() {
-  const { globalStats } = useCourseStore();
-  const { unreadCount } = useUIStore();
+export function QuickStats({ globalStats: globalStatsProp, unreadCount: unreadCountProp }: { globalStats?: any, unreadCount?: number } = {}) {
+  const { globalStats: globalStatsStore } = useCourseStore();
+  const { unreadCount: unreadCountStore } = useUIStore();
+  const globalStats = globalStatsProp || globalStatsStore;
+  const unreadCount = typeof unreadCountProp === 'number' ? unreadCountProp : unreadCountStore;
 
   const stats = [
     {

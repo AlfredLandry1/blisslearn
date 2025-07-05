@@ -12,11 +12,15 @@ import {
   Trash2, 
   RefreshCw,
   Filter,
-  Search
+  Search,
+  Info,
+  XCircle,
+  AlertTriangle
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { PersistentNotificationCard } from "./PersistentNotificationCard";
 import { Input } from "@/components/ui/input";
+import { NotificationDetailModal } from "./NotificationDetailModal";
 
 export function PersistentNotificationsList() {
   const {
@@ -32,17 +36,25 @@ export function PersistentNotificationsList() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const loadingKey = "persistent-notifications";
   const isLoading = isKeyLoading(loadingKey);
 
-  // Charger les notifications au montage
+  // ✅ CORRIGÉ : Charger les notifications sans dépendances instables
   useEffect(() => {
-    loadNotifications(currentPage, itemsPerPage);
-  }, [currentPage, itemsPerPage]);
+    // Charger seulement si on n'a pas de notifications ou si on change de page
+    if (persistentNotifications.length === 0 || currentPage > 1) {
+      // Utiliser setTimeout pour éviter les conflits de rendu
+      setTimeout(() => {
+        loadNotifications(currentPage, itemsPerPage);
+      }, 0);
+    }
+  }, [currentPage, itemsPerPage, persistentNotifications.length]); // ✅ Suppression de loadNotifications
 
   // Filtrer les notifications selon l'onglet actif
-  const filteredNotifications = persistentNotifications.filter(notification => {
+  let filteredNotifications = persistentNotifications.filter(notification => {
     const matchesSearch = searchTerm === "" || 
       notification.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (notification.title && notification.title.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -57,10 +69,31 @@ export function PersistentNotificationsList() {
     }
   });
 
+  // Filtrer les notifications sans id ou avec id dupliqué
+  const seenIds = new Set<string>();
+  filteredNotifications = filteredNotifications.filter(n => {
+    if (!n.id || seenIds.has(n.id)) return false;
+    seenIds.add(n.id);
+    return true;
+  });
+
   const handleMarkAllAsRead = async () => {
-    const unreadNotifications = filteredNotifications.filter(n => !n.read);
+    const unreadNotifications = filteredNotifications.filter(n => !n.read && n.id);
+    let errors = 0;
     for (const notification of unreadNotifications) {
-      await markNotificationAsRead(notification.id);
+      try {
+        await markNotificationAsRead(notification.id);
+      } catch (error: any) {
+        if (error?.message?.includes('404')) {
+          // On ignore l'erreur 404 (notification déjà supprimée)
+          continue;
+        } else {
+          errors++;
+        }
+      }
+    }
+    if (errors > 0) {
+      alert('Certaines notifications n\'ont pas pu être marquées comme lues.');
     }
   };
 
@@ -84,6 +117,41 @@ export function PersistentNotificationsList() {
   };
 
   const stats = getNotificationStats();
+
+  const handleShowDetail = (notification: any) => {
+    setSelectedNotification(notification);
+    setShowDetailModal(true);
+  };
+
+  // Fonctions utilitaires pour les icônes et couleurs
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'success':
+        return CheckCircle;
+      case 'error':
+        return XCircle;
+      case 'warning':
+        return AlertTriangle;
+      case 'info':
+        return Info;
+      default:
+        return Info;
+    }
+  };
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case 'success':
+        return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'error':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'warning':
+        return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'info':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      default:
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+    }
+  };
 
   if (isLoading && persistentNotifications.length === 0) {
     return (
@@ -126,7 +194,7 @@ export function PersistentNotificationsList() {
         </div>
 
         {/* Statistiques */}
-        <div className="flex items-center gap-4 mt-4">
+        <div className="flex items-center gap-4 my-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">Total:</span>
             <Badge variant="outline" className="border-gray-600 text-gray-300">
@@ -238,6 +306,7 @@ export function PersistentNotificationsList() {
               <PersistentNotificationCard
                 key={notification.id}
                 notification={notification}
+                onShowDetail={handleShowDetail}
               />
             ))}
           </div>
@@ -258,6 +327,15 @@ export function PersistentNotificationsList() {
             />
           </div>
         )}
+
+        {/* Modal de détail notification */}
+        <NotificationDetailModal
+          open={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
+          notification={selectedNotification}
+          getNotificationIcon={getNotificationIcon}
+          getNotificationColor={getNotificationColor}
+        />
       </CardContent>
     </Card>
   );

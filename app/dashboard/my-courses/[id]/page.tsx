@@ -17,6 +17,7 @@ import { SectionHeader, CourseSkills, CourseInfo } from "@/components/ui";
 import { safeJsonParseArray } from "@/lib/utils";
 import { PageLoadingState } from "@/components/ui/loading-states";
 import { PriceConverter } from "@/components/ui/PriceConverter";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface Course {
   id: number;
@@ -72,44 +73,67 @@ export default function CourseDetailPage() {
 
   const { refreshCourses } = useCourseStore();
 
-  useEffect(() => {
-    const fetchCourseData = async () => {
-      setLoading(loadingKey, true);
-      try {
-        // Récupérer les détails du cours
-        const courseResponse = await fetch(`/api/courses/${courseId}`);
-        if (!courseResponse.ok) {
-          throw new Error("Cours non trouvé");
-        }
-        const courseData = await courseResponse.json();
-        setCourse(courseData);
-
-        // Récupérer la progression
-        const progressResponse = await fetch(`/api/courses/progress?courseId=${courseId}`);
-        if (progressResponse.ok) {
-          const progressData = await progressResponse.json();
-          setProgress(progressData);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur lors du chargement");
-        addNotification({
-          type: "error",
-          title: "Erreur",
-          message: "Impossible de charger les détails du cours",
-          duration: 5000
-        });
-      } finally {
-        setLoading(loadingKey, false);
-      }
-    };
-
-    if (courseId) {
-      fetchCourseData();
+  // ✅ MIGRATION : Utilisation du client API
+  const {
+    data: courseData,
+    loading: courseLoading,
+    error: courseError,
+    get: fetchCourse
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setCourse(data);
+    },
+    onError: (error) => {
+      console.error('Erreur chargement cours:', error);
+      addNotification({
+        type: 'error',
+        title: 'Erreur de chargement',
+        message: 'Impossible de charger les détails du cours'
+      });
     }
-  }, [courseId, setLoading, addNotification, loadingKey]);
+  });
 
-  const handleProgressUpdate = (updatedProgress: Partial<ProgressData>) => {
-    setProgress(prev => prev ? { ...prev, ...updatedProgress } : null);
+  const {
+    data: progressData,
+    loading: progressLoading,
+    error: progressError,
+    get: fetchProgress,
+    put: updateProgress,
+    patch: patchFavorite
+  } = useApiClient<any>({
+    onSuccess: (data) => {
+      setProgress(data);
+    },
+    onError: (error) => {
+      console.error('Erreur chargement progression:', error);
+      addNotification({
+        type: 'error',
+        title: 'Erreur de chargement',
+        message: 'Impossible de charger votre progression'
+      });
+    }
+  });
+
+  // ✅ OPTIMISÉ : Chargement des données
+  useEffect(() => {
+    if (courseId) {
+      fetchCourse(`/api/courses/${courseId}`);
+      fetchProgress(`/api/courses/progress?courseId=${courseId}`);
+    }
+  }, [courseId, fetchCourse, fetchProgress]);
+
+  // ✅ OPTIMISÉ : Mise à jour de la progression
+  const handleProgressUpdate = async (newProgress: any) => {
+    try {
+      await updateProgress('/api/courses/progress', newProgress);
+      addNotification({
+        type: 'success',
+        title: 'Progression sauvegardée',
+        message: 'Votre progression a été mise à jour'
+      });
+    } catch (error) {
+      // Erreur déjà gérée par le client API
+    }
   };
 
   if (loading) {
@@ -241,29 +265,19 @@ export default function CourseDetailPage() {
                     onClick={async () => {
                       try {
                         const newFavoriteState = !progress?.favorite;
-                        
-                        const response = await fetch("/api/courses/progress", {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            courseId: course.id,
-                            favorite: newFavoriteState,
-                            lastActivityAt: new Date().toISOString()
-                          })
+                        const response = await patchFavorite("/api/courses/progress", {
+                          courseId: course.id,
+                          favorite: newFavoriteState,
+                          lastActivityAt: new Date().toISOString()
                         });
-
-                        if (response.ok) {
-                          // Mettre à jour l'état local
+                        if (response?.data) {
                           setProgress(prev => prev ? { ...prev, favorite: newFavoriteState } : null);
-                          
                           addNotification({
                             type: "success",
                             title: newFavoriteState ? "Ajouté aux favoris" : "Retiré des favoris",
                             message: newFavoriteState ? "Cours ajouté à vos favoris" : "Cours retiré de vos favoris",
                             duration: 3000
                           });
-
-                          // Mettre à jour le store des cours
                           refreshCourses();
                         } else {
                           throw new Error("Erreur lors de la mise à jour");

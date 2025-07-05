@@ -37,6 +37,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useApiClient } from "@/hooks/useApiClient";
 
 interface FinalCourseReportProps {
   courseId: number;
@@ -64,6 +65,15 @@ export function FinalCourseReport({
   const [courseInfo, setCourseInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const {
+    get: getReport,
+  } = useApiClient<any>({
+    onError: (error) => {
+      console.error("Erreur chargement rapport final:", error);
+      toast.error("Erreur lors du chargement du rapport");
+    }
+  });
+
   useEffect(() => {
     if (isOpen) {
       loadFinalReport();
@@ -74,40 +84,30 @@ export function FinalCourseReport({
     setIsLoading(true);
     try {
       // Récupérer le rapport général de fin de cours
-      const response = await fetch(
-        `/api/courses/milestones?courseId=${courseId}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        const finalReport = data.reports.find(
-          (r: any) => r.type === "final_course_summary"
-        );
-
+      const response = await getReport(`/api/courses/milestones?courseId=${courseId}`);
+      if (response?.data) {
+        const data = response.data;
+        const finalReport = data.reports.find((r: any) => r.type === "final_course_summary");
         if (finalReport) {
           setReport({
             id: finalReport.id,
             title: finalReport.title,
             type: finalReport.type,
             summary: finalReport.summary,
-            keyPoints: finalReport.keyPoints
-              ? JSON.parse(finalReport.keyPoints)
-              : [],
+            keyPoints: finalReport.keyPoints ? JSON.parse(finalReport.keyPoints) : [],
             recommendations: finalReport.recommendations,
             insights: finalReport.insights,
             createdAt: finalReport.createdAt,
           });
         }
-
         // Récupérer les informations du cours
-        const courseResponse = await fetch(`/api/courses/${courseId}`);
-        if (courseResponse.ok) {
-          const courseData = await courseResponse.json();
-          setCourseInfo(courseData);
+        const courseResponse = await getReport(`/api/courses/${courseId}`);
+        if (courseResponse?.data) {
+          setCourseInfo(courseResponse.data);
         }
       }
     } catch (error) {
-      console.error("Erreur chargement rapport final:", error);
-      toast.error("Erreur lors du chargement du rapport");
+      // Erreur déjà gérée par le client API
     } finally {
       setIsLoading(false);
     }

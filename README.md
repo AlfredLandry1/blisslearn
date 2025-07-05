@@ -194,6 +194,100 @@ blisslearn/
 - **Formulaires** : Formik, Yup
 - **Graphiques** : Recharts
 - **Notifications** : Sonner
+- **Client API** : Client API personnalisé basé sur Fetch natif
+
+## 🔌 Client API
+
+### Vue d'ensemble
+
+BlissLearn utilise un **client API personnalisé** basé sur Fetch natif, offrant une alternative robuste à Axios avec les avantages suivants :
+
+- ✅ **Performance** : Pas de dépendance externe
+- ✅ **Compatibilité** : Optimisé pour Next.js 15
+- ✅ **Robustesse** : Gestion d'erreurs avancée
+- ✅ **Flexibilité** : API similaire à Axios
+
+### Utilisation
+
+```typescript
+import { useApiClient } from "@/hooks/useApiClient";
+
+function MonComposant() {
+  const {
+    data,
+    loading,
+    error,
+    get,
+    post,
+    put,
+    delete: del
+  } = useApiClient<MonType>({
+    onSuccess: (data) => console.log('Succès:', data),
+    onError: (error) => console.error('Erreur:', error)
+  });
+
+  useEffect(() => {
+    get('/api/mon-endpoint');
+  }, [get]);
+
+  return (
+    <div>
+      {loading && <p>Chargement...</p>}
+      {error && <p>Erreur: {error.message}</p>}
+      {data && <p>Données: {JSON.stringify(data)}</p>}
+    </div>
+  );
+}
+```
+
+### Fonctionnalités
+
+#### 🔄 Gestion automatique des requêtes
+- **Timeout** : 30 secondes par défaut
+- **Annulation** : Automatique lors du démontage du composant
+- **Retry** : Tentatives automatiques en cas d'échec
+
+#### 🛡️ Gestion d'erreurs robuste
+```typescript
+const { get } = useApiClient({
+  onError: (error) => {
+    if (error.status === 401) {
+      // Redirection vers login
+    } else if (error.status === 500) {
+      // Notification d'erreur serveur
+    }
+  }
+});
+```
+
+#### 📊 Intercepteurs
+```typescript
+// Logging automatique
+apiClient.interceptors.request.use((config) => {
+  console.log('Requête:', config.url);
+  return config;
+});
+
+apiClient.interceptors.response.use((response) => {
+  console.log('Réponse:', response.status);
+  return response;
+});
+```
+
+### Migration Complète
+
+Tous les composants utilisant `fetch` natif ont été migrés vers le nouveau client API :
+
+- ✅ **Composants critiques** : ProgressTracker, CourseCard, UserInfoCard
+- ✅ **Formulaires d'authentification** : RegisterForm, LoginForm, etc.
+- ✅ **Pages principales** : Explorer, My Courses, Certifications
+- ✅ **Composants secondaires** : BlissChatbot, OnboardingWizard
+
+**Bénéfices obtenus :**
+- 🚀 Performance améliorée
+- 🛡️ Gestion d'erreurs centralisée
+- 🔧 Code plus maintenable
+- 📱 Meilleure expérience utilisateur
 
 ## 🔧 Configuration avancée
 
