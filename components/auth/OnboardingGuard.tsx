@@ -14,6 +14,7 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
   const { data: session, status } = useSession();
   const router = useRouter();
   const hasRedirected = useRef(false);
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [onboardingStatus, setOnboardingStatus] = useState<{ completed: boolean; loading: boolean }>({ 
     completed: false, 
     loading: true 
@@ -23,8 +24,10 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
     get: getOnboardingStatus
   } = useApiClient<any>({
     onSuccess: (data) => {
+      const completed = data?.data?.onboardingCompleted || false;
+      console.log("📊 Statut onboarding depuis DB:", completed);
       setOnboardingStatus({ 
-        completed: data?.data?.onboardingCompleted || false, 
+        completed, 
         loading: false 
       });
     },
@@ -46,11 +49,26 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
     }
   }, [isAuthenticated, session?.user?.email]);
 
+  // Nettoyer les timeouts
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     // Éviter les redirections multiples
-    if (hasRedirected.current) return;
+    if (hasRedirected.current) {
+      console.log("🚫 Redirection déjà effectuée, ignorée");
+      return;
+    }
 
-    if (isLoading) return;
+    if (isLoading) {
+      console.log("⏳ En attente du chargement...");
+      return;
+    }
 
     // Debug logs
     console.log("🔍 OnboardingGuard Debug:", {
@@ -59,10 +77,12 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
       isUnauthenticated,
       onboardingCompleted: onboardingStatus.completed,
       requireOnboarding,
-      sessionUser: session?.user
+      sessionUser: session?.user,
+      hasRedirected: hasRedirected.current
     });
 
     if (isUnauthenticated) {
+      console.log("🔐 Utilisateur non authentifié, redirection vers login");
       hasRedirected.current = true;
       router.push("/auth/login");
       return;
@@ -73,7 +93,23 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
       if (requireOnboarding && !onboardingStatus.completed) {
         console.log("🔄 Redirection vers onboarding (requireOnboarding=true et onboarding non complété)");
         hasRedirected.current = true;
-        router.push("/onboarding");
+        
+        // Ajouter un délai pour éviter les redirections trop rapides
+        redirectTimeoutRef.current = setTimeout(() => {
+          router.push("/onboarding");
+        }, 100);
+        return;
+      }
+
+      // Si on est sur la page onboarding et que l'onboarding est complété, rediriger vers dashboard
+      if (!requireOnboarding && onboardingStatus.completed && window.location.pathname === "/onboarding") {
+        console.log("✅ Onboarding complété, redirection vers dashboard");
+        hasRedirected.current = true;
+        
+        // Ajouter un délai pour éviter les redirections trop rapides
+        redirectTimeoutRef.current = setTimeout(() => {
+          router.push("/dashboard");
+        }, 100);
         return;
       }
 

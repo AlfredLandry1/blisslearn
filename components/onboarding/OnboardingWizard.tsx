@@ -21,7 +21,6 @@ import { useRouter } from "next/navigation";
 import { useUserStore } from "@/stores/userStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useApiClient } from "@/hooks/useApiClient";
-import { signOut, signIn } from "next-auth/react";
 
 const TOTAL_STEPS = 7;
 
@@ -77,10 +76,9 @@ export function OnboardingWizard() {
   useEffect(() => {
     if (onboardingData?.data?.onboardingData) {
       setLocalData({ ...defaultOnboardingData, ...onboardingData.data.onboardingData });
-      // Si l'onboarding est déjà complété, afficher un message au lieu de rediriger
+      // Si l'onboarding est déjà complété, afficher un message
       if (onboardingData.data.onboardingCompleted) {
         console.log("ℹ️ Onboarding déjà complété, affichage du récapitulatif");
-        // Ne pas rediriger automatiquement, laisser l'utilisateur voir le récapitulatif
       }
     }
   }, [onboardingData]);
@@ -141,10 +139,7 @@ export function OnboardingWizard() {
         duration: 5000
       });
       
-      // Forcer la mise à jour de la session
-      await signOut({ redirect: false });
-      await signIn();
-      
+      // Rediriger vers le dashboard - l'OnboardingGuard gérera la vérification
       router.push("/dashboard");
     } catch (error) {
       // Erreur déjà gérée par le client API
