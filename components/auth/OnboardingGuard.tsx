@@ -6,7 +6,7 @@ import { useEffect, useRef, useMemo } from "react";
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
-  requireOnboarding?: boolean; // true = redirige vers onboarding si pas complété, false = redirige vers onboarding si pas complété, mais ne redirige PAS vers dashboard si complété
+  requireOnboarding?: boolean; // true = redirige vers onboarding si pas complété, false = permet l'accès même si onboarding non complété
 }
 
 export function OnboardingGuard({ children, requireOnboarding = false }: OnboardingGuardProps) {
@@ -44,29 +44,17 @@ export function OnboardingGuard({ children, requireOnboarding = false }: Onboard
     }
 
     if (isAuthenticated && session?.user) {
-      // Si l'onboarding n'est pas complété, rediriger vers onboarding (peu importe requireOnboarding)
-      if (!hasCompletedOnboarding) {
-        console.log("🔄 Redirection vers onboarding (onboarding non complété)");
+      // Si requireOnboarding=true et onboarding non complété, rediriger vers onboarding
+      if (requireOnboarding && !hasCompletedOnboarding) {
+        console.log("🔄 Redirection vers onboarding (requireOnboarding=true et onboarding non complété)");
         hasRedirected.current = true;
         router.push("/onboarding");
         return;
       }
 
-      // Si requireOnboarding=true et onboarding complété, rediriger vers dashboard
-      // (pour les pages qui nécessitent l'onboarding mais ne sont pas le dashboard)
-      if (requireOnboarding && hasCompletedOnboarding) {
-        console.log("🔄 Redirection vers dashboard (requireOnboarding=true et onboarding complété)");
-        hasRedirected.current = true;
-        router.push("/dashboard");
-        return;
-      }
-
-      // Si requireOnboarding=false et onboarding complété, NE PAS rediriger
-      // (pour les pages comme my-courses, explorer, etc.)
-      if (!requireOnboarding && hasCompletedOnboarding) {
-        console.log("✅ Accès autorisé (requireOnboarding=false et onboarding complété)");
-        return;
-      }
+      // Dans tous les autres cas, permettre l'accès
+      console.log("✅ Accès autorisé");
+      return;
     }
   }, [isAuthenticated, isLoading, isUnauthenticated, hasCompletedOnboarding, requireOnboarding, router, session?.user]);
 

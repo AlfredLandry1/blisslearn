@@ -5,7 +5,7 @@ import { OnboardingGuard } from "@/components/auth/OnboardingGuard";
 
 export default function OnboardingPage() {
   return (
-    <OnboardingGuard requireOnboarding={true}>
+    <OnboardingGuard requireOnboarding={false}>
       <OnboardingWizard />
     </OnboardingGuard>
   );
